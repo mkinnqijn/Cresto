@@ -34,15 +34,19 @@ class AiViewModel(
 
     private var generationJob: Job? = null
 
-    fun generateContent(prompt: String) {
+    fun generateContent(prompt: String, availableGroups: List<String> = emptyList()) {
         launchExtraction {
-            aiTodoExtractor.extractFromText(prompt)
+            aiTodoExtractor.extractFromText(prompt, availableGroups)
         }
     }
 
-    fun generateContentFromImage(imageDataUrl: String, prompt: String = "请提取图片中的待办事项") {
+    fun generateContentFromImage(
+        imageDataUrl: String,
+        prompt: String = "请提取图片中的待办事项",
+        availableGroups: List<String> = emptyList()
+    ) {
         launchExtraction {
-            aiTodoExtractor.extractFromImage(imageDataUrl, prompt)
+            aiTodoExtractor.extractFromImage(imageDataUrl, prompt, availableGroups)
         }
     }
 

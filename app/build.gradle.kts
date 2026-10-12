@@ -84,6 +84,17 @@ android {
             if (isSigningConfigured) {
                 signingConfig = signingConfigs.getByName("momento")
             }
+            // Personal development build: separate applicationId/versionName so it can be
+            // installed next to the official Cresto without touching its data.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            // The dev build must not offer or install the official release, so it has no
+            // update channel at all (release keeps the real manifest URL from defaultConfig).
+            buildConfigField(
+                "String",
+                "UPDATE_MANIFEST_URL",
+                "\"\""
+            )
         }
         release {
             if (isSigningConfigured) {
@@ -116,6 +127,16 @@ configurations.configureEach {
 
 base {
     archivesName.set(vCodeProvider.map { "cresto-alpha$it" })
+}
+
+androidComponents {
+    onVariants { variant ->
+        if (variant.buildType == "debug") {
+            variant.outputs.forEach { output ->
+                output.outputFileName.set("cresto-dev-${vCodeProvider.get()}.apk")
+            }
+        }
+    }
 }
 
 kotlin {

@@ -26,7 +26,10 @@ class ScreenExtractRepository(
         val imageDataUrl = screenshot.toCompressedScreenshotDataUrl()
 
         onProgress(ScreenExtractPhase.Extracting)
-        return aiTodoExtractor.extractFromImage(imageDataUrl).items
+        return aiTodoExtractor.extractFromImage(
+            imageDataUrl = imageDataUrl,
+            availableGroups = todoRepository.getAllTodoGroupNames()
+        ).items
     }
 
     suspend fun insertExtractedTodos(items: List<EventItem>): Int {

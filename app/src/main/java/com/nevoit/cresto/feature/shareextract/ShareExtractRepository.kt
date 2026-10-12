@@ -36,7 +36,10 @@ class ShareExtractRepository(
             extractFromImages(imageUris, text, onProgress)
         } else {
             onProgress(ShareExtractPhase.Extracting)
-            aiTodoExtractor.extractFromText(text).items
+            aiTodoExtractor.extractFromText(
+                prompt = text,
+                availableGroups = todoRepository.getAllTodoGroupNames()
+            ).items
         }
     }
 
@@ -60,6 +63,7 @@ class ShareExtractRepository(
         } else {
             "请结合这段分享文字提取图片中的待办事项：\n$sharedText"
         }
+        val availableGroups = todoRepository.getAllTodoGroupNames()
 
         return imageUris.flatMap { uri ->
             onProgress(ShareExtractPhase.Reading)
@@ -68,7 +72,11 @@ class ShareExtractRepository(
             val imageDataUrl = imageBytes.toCompressedSharedImageDataUrl()
 
             onProgress(ShareExtractPhase.Extracting)
-            aiTodoExtractor.extractFromImage(imageDataUrl, prompt).items
+            aiTodoExtractor.extractFromImage(
+                imageDataUrl = imageDataUrl,
+                prompt = prompt,
+                availableGroups = availableGroups
+            ).items
         }
     }
 }

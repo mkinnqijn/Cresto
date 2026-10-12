@@ -59,6 +59,16 @@ class TodoRepository(
 
     val todoGroupCounts: Flow<List<TodoGroupCount>> = todoDao.getTodoGroupCounts()
 
+    suspend fun getAllTodoGroupNames(): List<String> {
+        return todoDao.getAllTodoGroupsSnapshot().map(TodoGroup::name)
+    }
+
+    suspend fun resolveTodoGroupIdByName(groupName: String?): Int? {
+        val normalizedName = groupName?.trim().orEmpty()
+        if (normalizedName.isEmpty()) return null
+        return todoDao.getTodoGroupByNameSnapshot(normalizedName)?.id
+    }
+
     val recentlyDeletedCount: Flow<Int> = todoDao.getRecentlyDeletedCount()
 
     suspend fun createTodoGroup(name: String, color: Int = 0): Long = todoDatabase.withTransaction {
@@ -338,7 +348,9 @@ class TodoRepository(
                         } catch (_: Exception) {
                             null
                         }
-                    }
+                    },
+                    groupId = resolveTodoGroupIdByName(eventItem.group),
+                    location = eventItem.location?.trim().orEmpty()
                 )
                 val insertedTodo = todo.copy(
                     id = todoDao.insertTodoForImport(todo).toInt()
@@ -848,7 +860,7 @@ class TodoRepository(
         val groups = todoDao.getAllTodoGroupsSnapshot()
 
         val backup = TodoBackupFile(
-            schemaVersion = 6,
+            schemaVersion = 7,
             exportedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             todos = todos.map {
                 TodoBackupDto(
@@ -873,6 +885,7 @@ class TodoRepository(
                     occurrenceDate = it.occurrenceDate?.toString(),
                     generatedFromTodoId = it.generatedFromTodoId,
                     occurrenceEditedAt = it.occurrenceEditedAt?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    location = it.location,
                     groupId = it.groupId,
                     deletedAt = it.deletedAt?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 )
@@ -983,6 +996,7 @@ class TodoRepository(
                     occurrenceDate = todoDto.occurrenceDate?.let(LocalDate::parse),
                     generatedFromTodoId = todoDto.generatedFromTodoId?.let(todoIdMap::get),
                     occurrenceEditedAt = todoDto.occurrenceEditedAt?.let(LocalDateTime::parse),
+                    location = todoDto.location,
                     groupId = mappedGroupId,
                     deletedAt = todoDto.deletedAt?.let(LocalDateTime::parse)
                 )
@@ -1234,6 +1248,7 @@ class TodoRepository(
         val dueDate: LocalDate?,
         val flag: Int,
         val notes: String,
+        val location: String,
         val startTime: LocalTime?,
         val endTime: LocalTime?,
         val reminderMode: TodoReminderMode?,
@@ -1250,6 +1265,7 @@ class TodoRepository(
             dueDate = dueDate,
             flag = flag,
             notes = notes,
+            location = location,
             startTime = startTime,
             endTime = endTime,
             reminderMode = reminderMode,

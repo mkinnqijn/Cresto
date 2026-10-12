@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The default locale strings of the dev build would otherwise be overridden by
+  values-zh-rCN/strings.xml from the main source set on Chinese-locale devices.
+-->
+<resources>
+    <string name="app_name">Cresto Dev</string>
+    <string name="today_widget_name">Cresto Dev</string>
+</resources>

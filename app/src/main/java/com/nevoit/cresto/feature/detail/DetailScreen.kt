@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,10 +48,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -354,6 +360,10 @@ fun DetailScreen(
     var sheetReminderIsAllDay by remember { mutableStateOf(true) }
     var onReminderSelectedCallback by remember { mutableStateOf<(TodoReminderConfig) -> Unit>({}) }
     var isCustomRepeatBottomSheetVisible by remember { mutableStateOf(false) }
+    var isEditingLocation by remember { mutableStateOf(false) }
+    var locationDraft by remember { mutableStateOf("") }
+    var locationFieldHasFocus by remember { mutableStateOf(false) }
+    val locationFocusRequester = remember { FocusRequester() }
 
     val noneText = stringResource(R.string.none)
     val ungroupedTodosText = stringResource(R.string.ungrouped_todos)
@@ -414,6 +424,26 @@ fun DetailScreen(
                 onClick = { updateRepeat(RepeatRuleConfig(frequency = RepeatFrequency.Yearly)) }
             )
         )
+    }
+
+    fun submitLocation() {
+        if (!isEditingLocation) return
+        isEditingLocation = false
+        locationFieldHasFocus = false
+        val normalizedLocation = locationDraft.trim()
+        itemWithSubTodos?.let { item ->
+            if (normalizedLocation != item.todoItem.location) {
+                viewModel.update(item.todoItem.copy(location = normalizedLocation))
+            }
+        }
+    }
+
+    LaunchedEffect(isEditingLocation) {
+        if (isEditingLocation) {
+            locationDraft = itemWithSubTodos?.todoItem?.location.orEmpty()
+            locationFieldHasFocus = false
+            locationFocusRequester.requestFocus()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -631,6 +661,58 @@ fun DetailScreen(
                                         fontWeight = FontWeight.Normal,
                                         color = AppColors.content
                                     )
+                                }
+                                VDivider()
+                                TodoConfigRow(
+                                    icon = painterResource(id = R.drawable.ic_location),
+                                    contentDescription = stringResource(R.string.location),
+                                    title = stringResource(R.string.location),
+                                    onButtonClick = {
+                                        if (!isEditingLocation) {
+                                            performPressHaptic()
+                                            isEditingLocation = true
+                                        }
+                                    }
+                                ) {
+                                    if (isEditingLocation) {
+                                        BasicTextField(
+                                            value = locationDraft,
+                                            onValueChange = { locationDraft = it },
+                                            modifier = Modifier
+                                                .width(160.dp)
+                                                .focusRequester(locationFocusRequester)
+                                                .onFocusChanged { focusState ->
+                                                    if (focusState.isFocused) {
+                                                        locationFieldHasFocus = true
+                                                    } else if (locationFieldHasFocus) {
+                                                        submitLocation()
+                                                    }
+                                                },
+                                            textStyle = GlasenseTheme.type.body.copy(
+                                                color = AppColors.content
+                                            ),
+                                            cursorBrush = SolidColor(AppColors.primary),
+                                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                            keyboardActions = KeyboardActions(onDone = { submitLocation() }),
+                                            singleLine = true,
+                                            decorationBox = { innerTextField ->
+                                                if (locationDraft.isEmpty()) {
+                                                    Text(
+                                                        text = noneText,
+                                                        style = GlasenseTheme.type.body,
+                                                        color = AppColors.content
+                                                    )
+                                                }
+                                                innerTextField()
+                                            }
+                                        )
+                                    } else {
+                                        Text(
+                                            text = currentItem.todoItem.location.ifBlank { noneText },
+                                            fontWeight = FontWeight.Normal,
+                                            color = AppColors.content
+                                        )
+                                    }
                                 }
                                 VDivider()
                                 TodoConfigRow(

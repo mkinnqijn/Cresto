@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class TodoBackupFile(
-    val schemaVersion: Int = 6,
+    val schemaVersion: Int = 7,
     val exportedAt: String,     // ISO_LOCAL_DATE_TIME
     val todos: List<TodoBackupDto>,
     val subTodos: List<SubTodoBackupDto>,
@@ -35,6 +35,7 @@ data class TodoBackupDto(
     val occurrenceDate: String? = null, // ISO_LOCAL_DATE
     val generatedFromTodoId: Int? = null,
     val occurrenceEditedAt: String? = null, // ISO_LOCAL_DATE_TIME
+    val location: String = "",
     val groupId: Int? = null,
     val deletedAt: String? = null // ISO_LOCAL_DATE_TIME
 )

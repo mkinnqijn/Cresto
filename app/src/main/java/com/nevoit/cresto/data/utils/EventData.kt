@@ -12,6 +12,8 @@ data class EventResponse(
 data class EventItem(
     val title: String,
     val date: String,
+    val group: String? = null,
+    val location: String? = null,
     val startTime: String? = null,
     val endTime: String? = null,
     val reminderMode: String? = null,

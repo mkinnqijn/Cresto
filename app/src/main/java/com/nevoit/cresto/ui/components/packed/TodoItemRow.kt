@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -204,6 +205,13 @@ fun TodoItemRow(
                 } else itemTodo.endTime?.format(timeFormatter)
             }
 
+            // 有具体时间时，日期后面附带时间，例如 "10/15 20:30"；没有时间的待办保持只显示日期。
+            val formattedDateWithTime = remember(rawFormattedDate, timeString) {
+                rawFormattedDate?.let { formattedDate ->
+                    if (timeString != null) "$formattedDate $timeString" else formattedDate
+                }
+            }
+
             val dueDateText: String? = when {
                 rawFormattedDate == null -> null
                 isToday && !itemTodo.isCompleted -> {
@@ -231,10 +239,13 @@ fun TodoItemRow(
                 }
 
                 isExpired && isOverdueMarkerEnabled && !itemTodo.isCompleted -> {
-                    stringResource(R.string.overdue_with_date, rawFormattedDate)
+                    stringResource(
+                        R.string.overdue_with_date,
+                        formattedDateWithTime ?: rawFormattedDate
+                    )
                 }
 
-                else -> rawFormattedDate
+                else -> formattedDateWithTime
             }
 
             val errorColor = AppColors.error
@@ -617,7 +628,9 @@ private fun TodoItemDueDateMeta(
             text = dueDateText,
             style = metadataStyle,
             fontSize = metadataFontSize,
-            color = dueDateColor
+            color = dueDateColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

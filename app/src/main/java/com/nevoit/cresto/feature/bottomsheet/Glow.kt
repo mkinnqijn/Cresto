@@ -169,7 +169,8 @@ fun AiInputBox(
     isLoading: Boolean,
     textFieldState: TextFieldState,
     aiViewModel: AiViewModel,
-    imagePickerLauncher: ManagedActivityResultLauncher<String, *>
+    imagePickerLauncher: ManagedActivityResultLauncher<String, *>,
+    availableGroupNames: List<String> = emptyList()
 ) {
     val darkTheme = isAppInDarkTheme()
     val gradientColors = if (darkTheme) {
@@ -208,7 +209,10 @@ fun AiInputBox(
                                 .fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             onKeyboardAction = {
-                                aiViewModel.generateContent(textFieldState.text.toString())
+                                aiViewModel.generateContent(
+                                    textFieldState.text.toString(),
+                                    availableGroupNames
+                                )
                             },
                             textStyle = GlasenseTheme.type.body.copy(
                                 color = AppColors.content
@@ -246,7 +250,10 @@ fun AiInputBox(
                             enabled = true,
                             shape = CircleShape,
                             onClick = {
-                                aiViewModel.generateContent(textFieldState.text.toString())
+                                aiViewModel.generateContent(
+                                    textFieldState.text.toString(),
+                                    availableGroupNames
+                                )
                             },
                             modifier = Modifier
                                 .width(40.dp)

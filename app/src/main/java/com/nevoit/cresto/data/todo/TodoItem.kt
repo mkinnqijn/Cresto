@@ -51,6 +51,7 @@ data class TodoItem(
     val completedDateTime: LocalDateTime? = null,
     val deletedAt: LocalDateTime? = null,
     val notes: String = "",
+    val location: String = "",
     val startTime: LocalTime? = null,
     val endTime: LocalTime? = null,
     val reminderMode: TodoReminderMode? = null,

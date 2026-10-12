@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Overrides for the personal development build only (src/debug is not part of the release build).
+  The dev build shares the source with the official app but must show up as a separate app.
+-->
+<resources>
+    <string name="app_name">Cresto Dev</string>
+    <string name="today_widget_name">Cresto Dev</string>
+</resources>

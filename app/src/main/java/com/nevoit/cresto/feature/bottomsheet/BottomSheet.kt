@@ -153,6 +153,7 @@ fun BottomSheet(
 
     val bottomSheetUiState by viewModel.bottomSheetState.collectAsState()
     val homeGroups by viewModel.homeGroups.collectAsState()
+    val availableGroupNames = remember(homeGroups) { homeGroups.map { it.name } }
     val homeGroupTodoCounts by viewModel.homeGroupTodoCounts.collectAsState()
 
     var finalDate by remember {
@@ -244,7 +245,10 @@ fun BottomSheet(
                 return@launch
             }
 
-            aiViewModel.generateContentFromImage(imageDataUrl)
+            aiViewModel.generateContentFromImage(
+                imageDataUrl,
+                availableGroups = availableGroupNames
+            )
         }
     }
 
@@ -472,7 +476,8 @@ fun BottomSheet(
                     isLoading = isLoading,
                     textFieldState = aiInputState,
                     aiViewModel = aiViewModel,
-                    imagePickerLauncher = imagePickerLauncher
+                    imagePickerLauncher = imagePickerLauncher,
+                    availableGroupNames = availableGroupNames
                 )
             }
             // Container for the AddTodoSheet content.

@@ -468,6 +468,7 @@ private fun EventItem.toTodoItem(id: Int): TodoItem {
         dueDate = parseLocalDate(date) ?: LocalDate.now(),
         isCompleted = isCompleted,
         completedDateTime = if (isCompleted) LocalDateTime.now() else null,
+        location = location?.trim().orEmpty(),
         startTime = startTime?.let(::parseLocalTime),
         endTime = endTime?.let(::parseLocalTime),
         reminderMode = reminderMode?.let(::parseReminderMode),

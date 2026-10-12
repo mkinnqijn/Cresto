@@ -88,9 +88,17 @@ val MIGRATION_29_30 = object : Migration(29, 30) {
     }
 }
 
+val MIGRATION_30_31 = object : Migration(30, 31) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE todo_items ADD COLUMN location TEXT NOT NULL DEFAULT ''"
+        )
+    }
+}
+
 @Database(
     entities = [TodoItem::class, SubTodoItem::class, RepeatRule::class, TodoGroup::class],
-    version = 30,
+    version = 31,
     exportSchema = true
 )
 
