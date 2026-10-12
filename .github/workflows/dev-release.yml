@@ -1,0 +1,128 @@
+name: Dev release (Cresto Dev)
+
+# 说明：这个工作流只发 Cresto Dev（com.nevoit.cresto.dev），不会触碰官方 Cresto 的任何东西。
+# 触发方式：打一个 dev-v<versionCode> 的 tag 并 push（例如 dev-v1083）。
+#   git tag dev-v1083 && git push origin dev-v1083
+# 之所以用 tag 触发而不是 workflow_dispatch：fork 的默认分支是 master（保持与 upstream 一致），
+# 而 workflow_dispatch 的按钮只在默认分支存在该文件时才会出现；tag 触发的 workflow 取自 tag 所在的分支。
+#
+# 首次使用前需要配置的仓库 Secrets（Settings → Secrets and variables → Actions）：
+#   DEV_KEYSTORE_BASE64      Dev 专用签名密钥库（.jks）的 base64 内容
+#   DEV_KEYSTORE_PASSWORD    密钥库口令
+#   DEV_KEY_ALIAS            密钥别名
+#   DEV_KEY_PASSWORD         密钥口令
+# 只有 CI 能读到这些值；仓库里不存放任何密钥或口令。
+
+on:
+  push:
+    tags:
+      - "dev-v*"
+
+permissions:
+  contents: write # 创建 Release
+
+jobs:
+  dev-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout personal branch
+        uses: actions/checkout@v4
+        with:
+          ref: personal
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        # API 37 的 platform 尚未公开发布，这里装 36 并用 -PdevCompileSdk=36 构建
+        run: sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Resolve version info from the tag
+        id: version
+        run: |
+          tag_code="${GITHUB_REF_NAME#dev-v}"
+          file_code="$(grep -E '^VERSION_CODE=' app/version.properties | cut -d= -f2 | tr -d '[:space:]')"
+          file_name="$(grep -E '^VERSION_NAME=' app/version.properties | cut -d= -f2 | tr -d '[:space:]')"
+          if [ "$tag_code" != "$file_code" ]; then
+            echo "::error::tag ($tag_code) 与 app/version.properties 的 VERSION_CODE ($file_code) 不一致。先 bump 再打 tag。"
+            exit 1
+          fi
+          echo "code=$file_code" >> "$GITHUB_OUTPUT"
+          echo "name=${file_name}-dev" >> "$GITHUB_OUTPUT"
+
+      - name: Guard - versionCode must be higher than the newest Dev release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code="${{ steps.version.outputs.code }}"
+          latest="$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)"
+          if [ -n "$latest" ]; then
+            latest_code="${latest#dev-v}"
+            if [ "$code" -le "$latest_code" ]; then
+              echo "::error::VERSION_CODE=$code 不大于已有 Dev 版本 ($latest)，请先 bump app/version.properties"
+              exit 1
+            fi
+          fi
+
+      - name: Decode Dev signing keystore from secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::缺少 Secret DEV_KEYSTORE_BASE64，见 DEV.md"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/signing/dev.jks"
+
+      - name: Build Cresto Dev APK
+        env:
+          # 复用项目已有的 MOMENTO_SIGNING_* 签名机制（四个变量齐备时 debug/release 都会用这个密钥库）
+          MOMENTO_SIGNING_STORE_FILE: ${{ runner.temp }}/signing/dev.jks
+          MOMENTO_SIGNING_STORE_PASSWORD: ${{ secrets.DEV_KEYSTORE_PASSWORD }}
+          MOMENTO_SIGNING_KEY_ALIAS: ${{ secrets.DEV_KEY_ALIAS }}
+          MOMENTO_SIGNING_KEY_PASSWORD: ${{ secrets.DEV_KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleDebug \
+            -PdevCompileSdk=36 \
+            -x :app:checkDebugAarMetadata \
+            --no-daemon
+
+      - name: Verify the APK is Cresto Dev and signed
+        run: |
+          code="${{ steps.version.outputs.code }}"
+          apk="app/build/outputs/apk/debug/cresto-dev-${code}.apk"
+          test -f "$apk" || { echo "::error::$apk 不存在"; exit 1; }
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$apk" | grep -q "package: name='com.nevoit.cresto.dev'" \
+            || { echo "::error::APK 的 applicationId 不是 com.nevoit.cresto.dev"; exit 1; }
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" | grep -q "Signer #1 certificate SHA-256" \
+            || { echo "::error::APK 未正确签名"; exit 1; }
+          echo "包名与签名校验通过"
+
+      - name: Generate Dev update manifest
+        run: |
+          python3 tools/dev_manifest.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --version-code "${{ steps.version.outputs.code }}" \
+            --version-name "${{ steps.version.outputs.name }}" \
+            --output .dev-update/latest.json
+
+      - name: Publish GitHub Release (APK + manifest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code="${{ steps.version.outputs.code }}"
+          gh release create "dev-v${code}" \
+            "app/build/outputs/apk/debug/cresto-dev-${code}.apk" \
+            ".dev-update/latest.json" \
+            --title "Cresto Dev ${code}" \
+            --notes "Cresto Dev 构建（personal 分支）。安装包只更新 com.nevoit.cresto.dev，不影响官方 Cresto。" \
+            --latest
+          echo "Dev 更新清单: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/latest.json"

@@ -22,3 +22,10 @@ local.properties
 /glasense-ui-demo/release/baselineProfiles/0/glasense-ui-demo-release.dm
 /glasense-ui-demo/release/baselineProfiles/1/glasense-ui-demo-release.dm
 /glasense-ui-demo/release/glasense-ui-demo-release.apk
+
+# 签名材料与口令文件绝不入库（Dev 签名密钥库、properties 里的口令等）
+*.jks
+*.keystore
+*.p12
+signing.properties
+keystore.properties

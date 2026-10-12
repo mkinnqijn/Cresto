@@ -15,6 +15,9 @@ val vNameProvider = versionPropsProvider.asText.map { text ->
     props.getProperty("VERSION_NAME", "1.0.0")
 }
 
+// 可选覆盖：API 37 的 SDK platform 尚未公开发布时，用 -PdevCompileSdk=36 构建（不设置时仍为 37）
+val devCompileSdkOverride = providers.gradleProperty("devCompileSdk").orNull?.toIntOrNull()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -46,7 +49,8 @@ check(!hasSigningProperties || isSigningConfigured) {
 android {
     namespace = "com.nevoit.cresto"
     compileSdk {
-        version = release(37)
+        // 官方配置是 37；API 37 的 SDK platform 尚未公开发布时可以 -PdevCompileSdk=36 构建（仅本地/CI 变通）
+        version = release(devCompileSdkOverride ?: 37)
     }
 
     defaultConfig {
@@ -88,12 +92,13 @@ android {
             // installed next to the official Cresto without touching its data.
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
-            // The dev build must not offer or install the official release, so it has no
-            // update channel at all (release keeps the real manifest URL from defaultConfig).
+            // Dev builds use their own update channel: the manifest attached to the newest
+            // release of this fork. The official release keeps the UPDATE_MANIFEST_URL from
+            // defaultConfig (nevodev.github.io), so the two channels never mix.
             buildConfigField(
                 "String",
                 "UPDATE_MANIFEST_URL",
-                "\"\""
+                "\"https://github.com/mkinnqijn/Cresto/releases/latest/download/latest.json\""
             )
         }
         release {

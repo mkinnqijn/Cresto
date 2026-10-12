@@ -120,6 +120,11 @@ fun TodoItemRow(
 
     val itemTodo = item.todoItem
 
+    // 地点是辅助信息：为空时整行都不显示（不显示“无”）
+    val locationText = remember(itemTodo.location) {
+        itemTodo.location.trim().takeIf { it.isNotEmpty() }
+    }
+
     val completedText = stringResource(R.string.completed)
     val flagText = stringResource(R.string.flag)
     val dueTodayText = stringResource(R.string.due_today_text)
@@ -133,6 +138,10 @@ fun TodoItemRow(
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.sp
     )
+
+    // 辅助信息（日期/时间、任务数、地点）共用的文字样式与字号
+    val metadataStyle = GlasenseTheme.type.body
+    val metadataFontSize = 14.sp
 
     Row(
         modifier = Modifier
@@ -153,17 +162,29 @@ fun TodoItemRow(
             onTapPosition = onCheckboxTapPosition
         )
         Spacer(modifier = Modifier.width(12.dp))
-        // If the to-do item has no due date, display only the title.
+        // If the to-do item has no due date, display the title (and the location when it is set).
         if (itemTodo.dueDate == null && !hasTasks) {
-            TodoTitleRow(
-                text = itemTodo.title,
-                style = todoTitleTextStyle,
-                lineThrough = itemTodo.isCompleted,
-                isPinned = itemTodo.isPinned,
+            Column(
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 12.dp)
-            )
+            ) {
+                TodoTitleRow(
+                    text = itemTodo.title,
+                    style = todoTitleTextStyle,
+                    lineThrough = itemTodo.isCompleted,
+                    isPinned = itemTodo.isPinned
+                )
+                if (locationText != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    TodoItemLocationMeta(
+                        location = locationText,
+                        metadataStyle = metadataStyle,
+                        metadataFontSize = metadataFontSize,
+                        density = density
+                    )
+                }
+            }
         } else {
             var today by remember { mutableStateOf(LocalDate.now()) }
             var nowTime by remember { mutableStateOf(LocalTime.now()) }
@@ -290,8 +311,6 @@ fun TodoItemRow(
                 }
             }
 
-            val metadataStyle = GlasenseTheme.type.body
-            val metadataFontSize = 14.sp
             val areCompleted = totalTaskCount > 0 && totalTaskCount == completedTaskCount
 
             Column(
@@ -375,6 +394,15 @@ fun TodoItemRow(
                         )
                     }
                 )
+                if (locationText != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    TodoItemLocationMeta(
+                        location = locationText,
+                        metadataStyle = metadataStyle,
+                        metadataFontSize = metadataFontSize,
+                        density = density
+                    )
+                }
             }
         }
         if (getFlagColor(itemTodo.flag) != Color.Transparent) {
@@ -631,6 +659,43 @@ private fun TodoItemDueDateMeta(
             color = dueDateColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * 主列表卡片里的地点行。
+ *
+ * 与日期/时间处于同一辅助信息层级：同样的灰色、同样的图标尺寸与间距；地点为空时调用方不会渲染这一行。
+ * 文字限制为单行并省略号截断，避免长地点把卡片撑高。
+ */
+@Composable
+private fun TodoItemLocationMeta(
+    location: String,
+    metadataStyle: TextStyle,
+    metadataFontSize: TextUnit,
+    density: Density,
+) {
+    val locationColor = AppColors.content.copy(alpha = 0.4f)
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(R.drawable.ic_location),
+            contentDescription = null,
+            tint = locationColor,
+            modifier = Modifier
+                .size(density.run { 18.sp.toDp() })
+                .align(Alignment.CenterVertically)
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(
+            text = location,
+            style = metadataStyle,
+            fontSize = metadataFontSize,
+            color = locationColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
         )
     }
 }

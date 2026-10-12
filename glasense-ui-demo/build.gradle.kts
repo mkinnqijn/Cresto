@@ -5,10 +5,13 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val devCompileSdkOverride = providers.gradleProperty("devCompileSdk").orNull?.toIntOrNull()
+
 android {
     namespace = "com.nevoit.glasensedemo"
     compileSdk {
-        version = release(37)
+        // 官方配置是 37；API 37 的 SDK platform 尚未公开发布时可以 -PdevCompileSdk=36 构建（仅本地/CI 变通）
+        version = release(devCompileSdkOverride ?: 37)
     }
 
     defaultConfig {
