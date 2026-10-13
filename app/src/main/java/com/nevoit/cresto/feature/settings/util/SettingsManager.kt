@@ -288,7 +288,9 @@ object SettingsManager {
 
 enum class SortOption {
     DEFAULT,
-    DUE_DATE,
+
+    // 按"截止时间"排序：先比截止日期，同一天内再比具体时间（原 DUE_DATE，语义已扩展；ordinal 保持不变）
+    DUE_TIME,
     FLAG,
     TITLE
 }

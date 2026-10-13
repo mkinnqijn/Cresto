@@ -15,7 +15,7 @@ import com.nevoit.cresto.ui.components.glasense.SelectiveMenuItemData
 @Composable
 fun rememberSortMenuItems(): List<GlasenseMenuItem> {
     val defaultText = stringResource(R.string.filter_default)
-    val dueDateText = stringResource(R.string.due_date)
+    val dueTimeText = stringResource(R.string.due_time)
     val flagText = stringResource(R.string.flag)
     val titleText = stringResource(R.string.title)
     val ascText = stringResource(R.string.ascending)
@@ -34,7 +34,7 @@ fun rememberSortMenuItems(): List<GlasenseMenuItem> {
         calendarAltIcon,
         flagIcon,
         characterIcon,
-        dueDateText,
+        dueTimeText,
         flagText,
         titleText,
         ascText,
@@ -50,10 +50,10 @@ fun rememberSortMenuItems(): List<GlasenseMenuItem> {
                 onClick = { SettingsManager.sortOption = SortOption.DEFAULT }
             ),
             SelectiveMenuItemData(
-                dueDateText,
+                dueTimeText,
                 calendarAltIcon,
-                isSelected = { SettingsManager.sortOptionState.intValue == SortOption.DUE_DATE.ordinal },
-                onClick = { SettingsManager.sortOption = SortOption.DUE_DATE }
+                isSelected = { SettingsManager.sortOptionState.intValue == SortOption.DUE_TIME.ordinal },
+                onClick = { SettingsManager.sortOption = SortOption.DUE_TIME }
             ),
             SelectiveMenuItemData(
                 flagText,

@@ -1,9 +1,11 @@
 package com.nevoit.cresto.feature.home
 
+import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.TodoItemWithSubTodos
 import com.nevoit.cresto.feature.settings.util.SortOption
 import com.nevoit.cresto.feature.settings.util.SortOrder
 import java.text.Collator
+import java.time.LocalTime
 
 enum class TodoListType {
     INCOMPLETED,
@@ -89,7 +91,7 @@ fun sortTodos(
                 compareByBaseDateTime
             }
 
-            SortOption.DUE_DATE -> {
+            SortOption.DUE_TIME -> {
                 val dateA = itemA.dueDate
                 val dateB = itemB.dueDate
 
@@ -105,7 +107,17 @@ fun sortTodos(
                     } else {
                         dateB.compareTo(dateA)
                     }
-                    if (dueDateCompare != 0) dueDateCompare else compareByBaseDateTime
+                    if (dueDateCompare != 0) {
+                        dueDateCompare
+                    } else {
+                        // 同一天内按具体时间排（全天任务视为 00:00，升序时排在最前）
+                        val dueTimeCompare = if (currentSortOrder == SortOrder.ASCENDING) {
+                            itemA.sortTime().compareTo(itemB.sortTime())
+                        } else {
+                            itemB.sortTime().compareTo(itemA.sortTime())
+                        }
+                        if (dueTimeCompare != 0) dueTimeCompare else compareByBaseDateTime
+                    }
                 }
             }
 
@@ -153,3 +165,9 @@ fun sortTodos(
     }
     return list.sortedWith(comparator)
 }
+
+/**
+ * 排序用的“当天时间”：优先开始时间，其次结束时间；两者都没有（全天任务）按 00:00 处理，
+ * 这样同一天内会按具体时间先后排列，全天任务排在当天最前面。
+ */
+private fun TodoItem.sortTime(): LocalTime = startTime ?: endTime ?: LocalTime.MIN
