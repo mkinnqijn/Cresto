@@ -7,17 +7,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
-import androidx.glance.appwidget.updateAll
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.nevoit.cresto.feature.guide.GuideActivity
 import com.nevoit.cresto.feature.main.MainScreen
 import com.nevoit.cresto.feature.screenextract.ScreenExtractEvents
 import com.nevoit.cresto.feature.settings.util.SettingsManager
-import com.nevoit.cresto.feature.widget.TodayTodoWidget
+import com.nevoit.cresto.feature.widget.EXTRA_WIDGET_ADD_TODO
+import com.nevoit.cresto.feature.widget.TodayTodoWidgetRefresh
 import com.nevoit.cresto.theme.GlasenseTheme
 import com.nevoit.cresto.util.NotificationPermissionCompat
 import com.nevoit.glasense.core.utility.clearBackground
-import kotlinx.coroutines.launch
 
 private const val REQUEST_POST_NOTIFICATIONS = 1001
 
@@ -25,12 +26,15 @@ private const val REQUEST_POST_NOTIFICATIONS = 1001
  * The main activity of the application.
  */
 class MainActivity : AppCompatActivity() {
+    private var widgetAddRequested by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // This makes the app display behind the system bars.
 
         requestNotificationPermissionIfNeeded()
         handleScreenExtractErrorIntent(intent)
+        handleWidgetIntent(intent)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         enableEdgeToEdge()
@@ -46,7 +50,10 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             GlasenseTheme {
-                MainScreen()
+                MainScreen(
+                    widgetAddRequested = widgetAddRequested,
+                    onWidgetAddHandled = { widgetAddRequested = false }
+                )
             }
         }
         clearBackground()
@@ -56,6 +63,14 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleScreenExtractErrorIntent(intent)
+        handleWidgetIntent(intent)
+    }
+
+    private fun handleWidgetIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_WIDGET_ADD_TODO, false) == true) {
+            widgetAddRequested = true
+            intent.removeExtra(EXTRA_WIDGET_ADD_TODO)
+        }
     }
 
     private fun handleScreenExtractErrorIntent(intent: Intent?) {
@@ -71,9 +86,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        lifecycleScope.launch {
-            TodayTodoWidget.updateAll(applicationContext)
-        }
+        TodayTodoWidgetRefresh.request(applicationContext)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

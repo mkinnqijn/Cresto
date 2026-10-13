@@ -2,6 +2,8 @@ package com.nevoit.cresto
 
 import android.app.Application
 import com.nevoit.cresto.data.todo.appModule
+import com.nevoit.cresto.data.todo.TodoDatabase
+import com.nevoit.cresto.feature.widget.TodayTodoWidgetRefresh
 import com.nevoit.cresto.data.todo.cleanup.RecentlyDeletedCleanupScheduler
 import com.nevoit.cresto.data.todo.reminder.TodoReminderNotifications
 import com.nevoit.cresto.feature.shareextract.ShareExtractNotifications
@@ -11,6 +13,7 @@ import com.nevoit.cresto.feature.settings.util.SettingsManager
 import com.tencent.mmkv.MMKV
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext.startKoin
+import org.koin.core.context.GlobalContext
 import rikka.shizuku.ShizukuProvider
 
 /**
@@ -31,5 +34,6 @@ class CrestoApplication : Application() {
             modules(appModule)
         }
         RecentlyDeletedCleanupScheduler.schedule(this)
+        TodayTodoWidgetRefresh.observe(this, GlobalContext.get().get<TodoDatabase>())
     }
 }

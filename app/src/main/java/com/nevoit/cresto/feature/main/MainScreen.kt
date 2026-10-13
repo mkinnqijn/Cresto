@@ -110,7 +110,10 @@ sealed class Screen(val route: String) {
 
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    widgetAddRequested: Boolean = false,
+    onWidgetAddHandled: () -> Unit = {}
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
 
@@ -212,6 +215,13 @@ fun MainScreen() {
     val density = LocalDensity.current
 
     val viewModel: TodoViewModel = koinViewModel()
+    LaunchedEffect(widgetAddRequested) {
+        if (widgetAddRequested) {
+            currentRoute = Screen.Home.route
+            viewModel.showBottomSheet(date = LocalDate.now())
+            onWidgetAddHandled()
+        }
+    }
     val requirePermission = stringResource(R.string.calendar_sync_permission_required)
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
