@@ -2,7 +2,9 @@ package com.nevoit.cresto.feature.widget
 
 import com.nevoit.cresto.data.todo.TodoItem
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZonedDateTime
+import java.time.Duration
 import java.time.format.DateTimeFormatter
 
 internal data class WidgetTodoSection(
@@ -11,17 +13,23 @@ internal data class WidgetTodoSection(
     val todos: List<TodoItem>
 )
 
+internal const val WIDGET_COMPLETION_UNDO_MINUTES = 3L
+
 /** Widget ordering is chronological, independent of the app's user-selected sort or pins. */
 internal fun upcomingWidgetSections(
     todos: List<TodoItem>,
-    today: LocalDate
+    today: LocalDate,
+    now: LocalDateTime = LocalDateTime.now()
 ): List<WidgetTodoSection> {
+    val completionCutoff = now.minusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)
     val upcoming = todos.asSequence()
         .filter { todo ->
             val dueDate = todo.dueDate
+            val recentlyCompleted = todo.isCompleted &&
+                todo.completedDateTime?.isAfter(completionCutoff) == true
             dueDate != null &&
                 !dueDate.isBefore(today) &&
-                !todo.isCompleted &&
+                (!todo.isCompleted || recentlyCompleted) &&
                 todo.deletedAt == null
         }
         .sortedWith(
@@ -33,17 +41,40 @@ internal fun upcomingWidgetSections(
         )
         .toList()
 
-    val countsByDate = upcoming.groupingBy { requireNotNull(it.dueDate) }.eachCount()
+    val countsByDate = upcoming.asSequence()
+        .filterNot { it.isCompleted }
+        .groupingBy { requireNotNull(it.dueDate) }
+        .eachCount()
     return upcoming
         .groupBy { requireNotNull(it.dueDate) }
         .map { (date, visibleTodos) ->
             WidgetTodoSection(
                 date = date,
-                totalCount = countsByDate.getValue(date),
+                totalCount = countsByDate[date] ?: 0,
                 todos = visibleTodos
             )
         }
 }
+
+internal fun nextWidgetCompletionExpiryDelayMillis(
+    todos: List<TodoItem>,
+    today: LocalDate,
+    now: LocalDateTime = LocalDateTime.now()
+): Long? = todos.asSequence()
+    .filter { todo ->
+        todo.isCompleted &&
+            todo.deletedAt == null &&
+            todo.dueDate?.let { !it.isBefore(today) } == true
+    }
+    .mapNotNull { it.completedDateTime }
+    .map { completedAt ->
+        Duration.between(
+            now,
+            completedAt.plusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)
+        ).toMillis()
+    }
+    .filter { it > 0L }
+    .minOrNull()
 
 /** Keeps only complete date sections and rows that fit the widget's measured content height. */
 internal fun fitWidgetSections(

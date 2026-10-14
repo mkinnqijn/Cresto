@@ -2,6 +2,7 @@ package com.nevoit.cresto.feature.widget
 
 import android.content.Context
 import android.content.Intent
+import android.appwidget.AppWidgetManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,14 +17,17 @@ import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.AppWidgetId
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity as actionStartWidgetActivity
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.*
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextDecoration
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.nevoit.cresto.MainActivity
@@ -40,8 +44,10 @@ import java.time.LocalDate
 import androidx.glance.color.ColorProvider as DayNightColorProvider
 
 const val EXTRA_WIDGET_ADD_TODO = "widget_add_todo"
+private const val ACTION_WIDGET_ADD_TODO = "com.nevoit.cresto.action.WIDGET_ADD_TODO"
 internal val WidgetRefreshKey = longPreferencesKey("widget_refresh")
-private val TodoIdKey = ActionParameters.Key<Int>(EXTRA_TODO_ID)
+internal val WidgetTodoIdKey = ActionParameters.Key<Int>(EXTRA_TODO_ID)
+internal val WidgetTodoCompletedKey = ActionParameters.Key<Boolean>("widget_todo_completed")
 
 private data class TodayTodoWidgetColors(
     val background: ColorProvider,
@@ -58,6 +64,14 @@ object TodayTodoWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = GlobalContext.get().get<TodoRepository>()
         val initialTodos = repository.allTodos.first()
+        val optionHeight = (id as? AppWidgetId)?.let { appWidgetId ->
+            val options = AppWidgetManager.getInstance(context)
+                .getAppWidgetOptions(appWidgetId.appWidgetId)
+            maxOf(
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT),
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            ).takeIf { it > 0 }?.dp
+        }
         provideContent {
             // The revision makes the date window advance after midnight or a time-zone change.
             val revision = currentState(WidgetRefreshKey)
@@ -66,7 +80,8 @@ object TodayTodoWidget : GlanceAppWidget() {
             TodayTodoWidgetContent(
                 context = context,
                 today = today,
-                sections = upcomingWidgetSections(todos.map { it.todoItem }, today)
+                sections = upcomingWidgetSections(todos.map { it.todoItem }, today),
+                optionHeight = optionHeight
             )
         }
     }
@@ -122,18 +137,34 @@ private fun rememberTodayTodoWidgetColors(context: Context): TodayTodoWidgetColo
 private fun TodayTodoWidgetContent(
     context: Context,
     today: LocalDate,
-    sections: List<WidgetTodoSection>
+    sections: List<WidgetTodoSection>,
+    optionHeight: Dp?
 ) {
     val colors = rememberTodayTodoWidgetColors(context)
-    val widgetHeight = LocalSize.current.height
+    val localHeight = LocalSize.current.height
+    val widgetHeight = optionHeight?.takeIf { it > localHeight } ?: localHeight
+    val expanded = widgetHeight >= 320.dp
     val spacious = widgetHeight >= 180.dp
     val visibleSections = fitWidgetSections(
         sections = sections,
-        availableHeightDp = (widgetHeight - if (spacious) 65.dp else 59.dp).value,
-        rowHeightDp = if (spacious) 39f else 34f,
-        sectionHeaderHeightDp = if (spacious) 17f else 15f
+        availableHeightDp = (widgetHeight - when {
+            expanded -> 76.dp
+            spacious -> 65.dp
+            else -> 59.dp
+        }).value,
+        rowHeightDp = when {
+            expanded -> 47f
+            spacious -> 39f
+            else -> 34f
+        },
+        sectionHeaderHeightDp = when {
+            expanded -> 20f
+            spacious -> 17f
+            else -> 15f
+        }
     )
     val addIntent = Intent(context, MainActivity::class.java)
+        .setAction(ACTION_WIDGET_ADD_TODO)
         .putExtra(EXTRA_WIDGET_ADD_TODO, true)
         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
@@ -141,7 +172,14 @@ private fun TodayTodoWidgetContent(
         modifier = GlanceModifier.fillMaxSize().appWidgetBackground()
             .background(colors.background).cornerRadius(24.dp)
             .clickable(actionStartActivity<MainActivity>())
-            .padding(horizontal = 16.dp, vertical = if (spacious) 12.dp else 10.dp)
+            .padding(
+                horizontal = if (expanded) 20.dp else 16.dp,
+                vertical = when {
+                    expanded -> 16.dp
+                    spacious -> 12.dp
+                    else -> 10.dp
+                }
+            )
     ) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -149,18 +187,19 @@ private fun TodayTodoWidgetContent(
                 modifier = GlanceModifier.defaultWeight(),
                 style = TextStyle(
                     color = colors.content,
-                    fontSize = 19.sp,
+                    fontSize = if (expanded) 22.sp else 19.sp,
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
             )
-            Box(GlanceModifier.size(36.dp).clickable(actionStartWidgetActivity(addIntent)),
+            Box(GlanceModifier.size(if (expanded) 40.dp else 36.dp).clickable(actionStartWidgetActivity(addIntent)),
                 contentAlignment = Alignment.Center) {
                 Image(ImageProvider(R.drawable.ic_add), context.getString(R.string.add_new_todo),
-                    modifier = GlanceModifier.size(24.dp), colorFilter = ColorFilter.tint(colors.primary))
+                    modifier = GlanceModifier.size(if (expanded) 26.dp else 24.dp),
+                    colorFilter = ColorFilter.tint(colors.primary))
             }
         }
-        Spacer(GlanceModifier.height(if (spacious) 5.dp else 2.dp))
+        Spacer(GlanceModifier.height(if (expanded) 7.dp else if (spacious) 5.dp else 2.dp))
         if (visibleSections.isEmpty()) {
             Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.CenterStart) {
                 Text(context.getString(R.string.upcoming_widget_empty),
@@ -169,20 +208,37 @@ private fun TodayTodoWidgetContent(
         } else {
             Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
                 visibleSections.forEachIndexed { sectionIndex, section ->
-                    if (sectionIndex > 0) {
-                        WidgetDivider(colors = colors)
-                        Spacer(GlanceModifier.height(2.dp))
-                    }
-                    WidgetDateHeader(
-                        context = context,
-                        today = today,
-                        section = section,
-                        colors = colors
-                    )
-                    section.todos.forEachIndexed { todoIndex, todo ->
-                        TodayTodoRow(todo = todo, colors = colors, spacious = spacious)
-                        if (todoIndex < section.todos.lastIndex) {
-                            WidgetDivider(colors = colors, startPadding = 26.dp)
+                    Column(GlanceModifier.fillMaxWidth()) {
+                        if (sectionIndex > 0) {
+                            WidgetDivider(colors = colors)
+                            Spacer(GlanceModifier.height(2.dp))
+                        }
+                        WidgetDateHeader(
+                            context = context,
+                            today = today,
+                            section = section,
+                            colors = colors,
+                            expanded = expanded
+                        )
+                        // RemoteViews limits the number of direct children in a container.
+                        // Chunk rows into nested columns so a tall widget can keep growing.
+                        section.todos.chunked(8).forEachIndexed { chunkIndex, chunk ->
+                            Column(GlanceModifier.fillMaxWidth()) {
+                                chunk.forEachIndexed { todoIndex, todo ->
+                                    Column(GlanceModifier.fillMaxWidth()) {
+                                        if (chunkIndex > 0 || todoIndex > 0) {
+                                            WidgetDivider(colors = colors, startPadding = 26.dp)
+                                        }
+                                        TodayTodoRow(
+                                            context = context,
+                                            todo = todo,
+                                            colors = colors,
+                                            spacious = spacious,
+                                            expanded = expanded
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -196,7 +252,8 @@ private fun WidgetDateHeader(
     context: Context,
     today: LocalDate,
     section: WidgetTodoSection,
-    colors: TodayTodoWidgetColors
+    colors: TodayTodoWidgetColors,
+    expanded: Boolean
 ) {
     val label = widgetDateLabel(
         date = section.date,
@@ -216,12 +273,16 @@ private fun WidgetDateHeader(
         Text(
             text = label,
             modifier = GlanceModifier.defaultWeight(),
-            style = TextStyle(color = colors.secondary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            style = TextStyle(
+                color = colors.secondary,
+                fontSize = if (expanded) 14.sp else 12.sp,
+                fontWeight = FontWeight.Medium
+            ),
             maxLines = 1
         )
         Text(
             text = count,
-            style = TextStyle(color = colors.secondary, fontSize = 12.sp),
+            style = TextStyle(color = colors.secondary, fontSize = if (expanded) 14.sp else 12.sp),
             maxLines = 1
         )
     }
@@ -238,35 +299,70 @@ private fun WidgetDivider(colors: TodayTodoWidgetColors, startPadding: Dp = 0.dp
 }
 
 @Composable
-private fun TodayTodoRow(todo: TodoItem, colors: TodayTodoWidgetColors, spacious: Boolean) {
+private fun TodayTodoRow(
+    context: Context,
+    todo: TodoItem,
+    colors: TodayTodoWidgetColors,
+    spacious: Boolean,
+    expanded: Boolean
+) {
     val location = todo.location.trim()
     val hasTime = todo.startTime != null
     val hasLocation = location.isNotEmpty()
     Row(
         modifier = GlanceModifier.fillMaxWidth()
-            .clickable(actionStartActivity<DetailActivity>(actionParametersOf(TodoIdKey to todo.id)))
-            .padding(vertical = if (spacious) 6.dp else 4.dp),
+            .clickable(actionStartActivity<DetailActivity>(actionParametersOf(WidgetTodoIdKey to todo.id)))
+            .padding(vertical = if (expanded) 8.dp else if (spacious) 6.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Decorative only: the entire row opens details, with no completion action.
-        Image(ImageProvider(R.drawable.ic_checkbox_circle_outline), null,
-            modifier = GlanceModifier.size(17.dp),
-            colorFilter = ColorFilter.tint(colors.secondary))
-        Spacer(GlanceModifier.width(9.dp))
+        Box(
+            modifier = GlanceModifier
+                .size(if (expanded) 30.dp else 26.dp)
+                .clickable(
+                    actionRunCallback<ToggleWidgetTodoCompletionAction>(
+                        actionParametersOf(
+                            WidgetTodoIdKey to todo.id,
+                            WidgetTodoCompletedKey to !todo.isCompleted
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                provider = ImageProvider(
+                    if (todo.isCompleted) R.drawable.ic_checkmark_circle
+                    else R.drawable.ic_checkbox_circle_outline
+                ),
+                contentDescription = context.getString(
+                    if (todo.isCompleted) R.string.restore else R.string.done
+                ),
+                modifier = GlanceModifier.size(if (expanded) 20.dp else 17.dp),
+                colorFilter = ColorFilter.tint(
+                    if (todo.isCompleted) colors.primary else colors.secondary
+                )
+            )
+        }
+        Spacer(GlanceModifier.width(if (expanded) 11.dp else 9.dp))
         Text(
             text = todo.title,
             modifier = GlanceModifier.defaultWeight(),
-            style = TextStyle(color = colors.content, fontSize = 14.sp),
+            style = TextStyle(
+                color = if (todo.isCompleted) colors.secondary else colors.content,
+                fontSize = if (expanded) 16.sp else 14.sp,
+                textDecoration = if (todo.isCompleted) TextDecoration.LineThrough
+                else TextDecoration.None
+            ),
             maxLines = if (spacious) 2 else 1
         )
         if (hasTime || hasLocation) {
             Spacer(GlanceModifier.width(8.dp))
-            Column(GlanceModifier.width(if (spacious) 104.dp else 88.dp)) {
+            Column(GlanceModifier.width(if (expanded) 124.dp else if (spacious) 104.dp else 88.dp)) {
                 if (hasTime) {
                     WidgetMetadata(
                         icon = R.drawable.ic_clock,
                         text = todo.widgetTime(),
-                        colors = colors
+                        colors = colors,
+                        expanded = expanded
                     )
                 }
                 if (hasTime && hasLocation) {
@@ -276,7 +372,8 @@ private fun TodayTodoRow(todo: TodoItem, colors: TodayTodoWidgetColors, spacious
                     WidgetMetadata(
                         icon = R.drawable.ic_location,
                         text = location,
-                        colors = colors
+                        colors = colors,
+                        expanded = expanded
                     )
                 }
             }
@@ -285,19 +382,24 @@ private fun TodayTodoRow(todo: TodoItem, colors: TodayTodoWidgetColors, spacious
 }
 
 @Composable
-private fun WidgetMetadata(icon: Int, text: String, colors: TodayTodoWidgetColors) {
+private fun WidgetMetadata(
+    icon: Int,
+    text: String,
+    colors: TodayTodoWidgetColors,
+    expanded: Boolean
+) {
     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Image(
             provider = ImageProvider(icon),
             contentDescription = null,
-            modifier = GlanceModifier.size(15.dp),
+            modifier = GlanceModifier.size(if (expanded) 17.dp else 15.dp),
             colorFilter = ColorFilter.tint(colors.secondary)
         )
         Spacer(GlanceModifier.width(3.dp))
         Text(
             text = text,
             modifier = GlanceModifier.defaultWeight(),
-            style = TextStyle(color = colors.secondary, fontSize = 12.sp),
+            style = TextStyle(color = colors.secondary, fontSize = if (expanded) 14.sp else 12.sp),
             maxLines = 1
         )
     }

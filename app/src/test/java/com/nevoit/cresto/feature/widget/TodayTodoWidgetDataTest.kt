@@ -4,6 +4,7 @@ import com.nevoit.cresto.data.todo.TodoItem
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
@@ -72,6 +73,30 @@ class TodayTodoWidgetDataTest {
         val sections = upcomingWidgetSections(listOf(todo(1), todo(2), todo(3)), today)
         assertEquals(3, sections.single().totalCount)
         assertEquals(listOf(1, 2, 3), sections.single().todos.map { it.id })
+    }
+
+    @Test fun `recently completed todo remains for undo without increasing pending count`() {
+        val now = LocalDateTime.of(2026, 10, 13, 12, 0)
+        val sections = upcomingWidgetSections(
+            listOf(
+                todo(1),
+                todo(2).copy(isCompleted = true, completedDateTime = now.minusMinutes(2)),
+                todo(3).copy(isCompleted = true, completedDateTime = now.minusMinutes(3))
+            ),
+            today,
+            now
+        )
+
+        assertEquals(listOf(1, 2), sections.single().todos.map { it.id })
+        assertEquals(1, sections.single().totalCount)
+        assertEquals(
+            60_000L,
+            nextWidgetCompletionExpiryDelayMillis(
+                sections.single().todos,
+                today,
+                now
+            )
+        )
     }
 
     @Test fun `height fitting only emits dates with at least one complete todo row`() {

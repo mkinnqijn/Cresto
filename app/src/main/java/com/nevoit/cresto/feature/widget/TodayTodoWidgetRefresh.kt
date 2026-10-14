@@ -16,12 +16,19 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nevoit.cresto.data.todo.TodoDatabase
 import java.time.ZonedDateTime
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import com.nevoit.cresto.data.todo.TodoRepository
+import org.koin.core.context.GlobalContext
 
 /** Event-driven updates shared by every mutation path, including imports and details. */
 object TodayTodoWidgetRefresh {
     const val ACTION_MIDNIGHT = "com.nevoit.cresto.widget.MIDNIGHT"
     private const val WORK_NAME = "today-todo-widget-refresh"
+    private const val COMPLETION_EXPIRY_WORK_NAME = "today-todo-widget-completion-expiry"
 
     fun observe(context: Context, database: TodoDatabase) {
         val appContext = context.applicationContext
@@ -47,6 +54,17 @@ object TodayTodoWidgetRefresh {
         )
     }
 
+    fun scheduleCompletionExpiry(context: Context, delayMillis: Long) {
+        if (!hasWidgets(context) || delayMillis <= 0L) return
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            COMPLETION_EXPIRY_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>()
+                .setInitialDelay(delayMillis + 250L, TimeUnit.MILLISECONDS)
+                .build()
+        )
+    }
+
     private fun midnightIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context, 0,
         Intent(context, TodayTodoWidgetReceiver::class.java).setAction(ACTION_MIDNIGHT),
@@ -69,6 +87,7 @@ object TodayTodoWidgetRefresh {
     fun cancel(context: Context) {
         context.getSystemService(AlarmManager::class.java).cancel(midnightIntent(context))
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(COMPLETION_EXPIRY_WORK_NAME)
     }
 }
 
@@ -82,6 +101,15 @@ class TodayTodoWidgetRefreshWorker(context: Context, parameters: WorkerParameter
                 state[WidgetRefreshKey] = (state[WidgetRefreshKey] ?: 0L) + 1L
             }
             TodayTodoWidget.update(applicationContext, id)
+        }
+        val repository = GlobalContext.get().get<TodoRepository>()
+        val todos = repository.allTodos.first().map { it.todoItem }
+        nextWidgetCompletionExpiryDelayMillis(
+            todos = todos,
+            today = LocalDate.now(),
+            now = LocalDateTime.now()
+        )?.let { delay ->
+            TodayTodoWidgetRefresh.scheduleCompletionExpiry(applicationContext, delay)
         }
         Result.success()
     } catch (cancelled: CancellationException) {

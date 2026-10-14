@@ -2,6 +2,8 @@ package com.nevoit.cresto.feature.widget
 
 import android.content.Context
 import android.content.Intent
+import android.appwidget.AppWidgetManager
+import android.os.Bundle
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 
@@ -16,6 +18,16 @@ class TodayTodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         TodayTodoWidgetRefresh.cancel(context)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        TodayTodoWidgetRefresh.request(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
