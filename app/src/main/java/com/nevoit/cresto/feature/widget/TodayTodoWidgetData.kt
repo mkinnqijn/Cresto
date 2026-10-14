@@ -5,8 +5,6 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-internal const val WIDGET_TODO_LIMIT = 2
-
 internal data class WidgetTodoSection(
     val date: LocalDate,
     val totalCount: Int,
@@ -16,8 +14,7 @@ internal data class WidgetTodoSection(
 /** Widget ordering is chronological, independent of the app's user-selected sort or pins. */
 internal fun upcomingWidgetSections(
     todos: List<TodoItem>,
-    today: LocalDate,
-    limit: Int = WIDGET_TODO_LIMIT
+    today: LocalDate
 ): List<WidgetTodoSection> {
     val upcoming = todos.asSequence()
         .filter { todo ->
@@ -37,7 +34,7 @@ internal fun upcomingWidgetSections(
         .toList()
 
     val countsByDate = upcoming.groupingBy { requireNotNull(it.dueDate) }.eachCount()
-    return upcoming.take(limit.coerceAtLeast(0))
+    return upcoming
         .groupBy { requireNotNull(it.dueDate) }
         .map { (date, visibleTodos) ->
             WidgetTodoSection(
@@ -46,6 +43,36 @@ internal fun upcomingWidgetSections(
                 todos = visibleTodos
             )
         }
+}
+
+/** Keeps only complete date sections and rows that fit the widget's measured content height. */
+internal fun fitWidgetSections(
+    sections: List<WidgetTodoSection>,
+    availableHeightDp: Float,
+    rowHeightDp: Float,
+    sectionHeaderHeightDp: Float
+): List<WidgetTodoSection> {
+    var remainingHeight = availableHeightDp.coerceAtLeast(0f)
+    val visibleSections = mutableListOf<WidgetTodoSection>()
+
+    for (section in sections) {
+        if (section.todos.isEmpty() || remainingHeight < sectionHeaderHeightDp + rowHeightDp) break
+
+        remainingHeight -= sectionHeaderHeightDp
+        val visibleTodos = section.todos.takeWhile {
+            if (remainingHeight < rowHeightDp) {
+                false
+            } else {
+                remainingHeight -= rowHeightDp
+                true
+            }
+        }
+        if (visibleTodos.isEmpty()) break
+        visibleSections += section.copy(todos = visibleTodos)
+        if (visibleTodos.size < section.todos.size) break
+    }
+
+    return visibleSections
 }
 
 internal fun TodoItem.widgetTime(): String =

@@ -125,7 +125,14 @@ private fun TodayTodoWidgetContent(
     sections: List<WidgetTodoSection>
 ) {
     val colors = rememberTodayTodoWidgetColors(context)
-    val spacious = LocalSize.current.height >= 180.dp
+    val widgetHeight = LocalSize.current.height
+    val spacious = widgetHeight >= 180.dp
+    val visibleSections = fitWidgetSections(
+        sections = sections,
+        availableHeightDp = (widgetHeight - if (spacious) 65.dp else 59.dp).value,
+        rowHeightDp = if (spacious) 39f else 34f,
+        sectionHeaderHeightDp = if (spacious) 17f else 15f
+    )
     val addIntent = Intent(context, MainActivity::class.java)
         .putExtra(EXTRA_WIDGET_ADD_TODO, true)
         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -154,14 +161,14 @@ private fun TodayTodoWidgetContent(
             }
         }
         Spacer(GlanceModifier.height(if (spacious) 5.dp else 2.dp))
-        if (sections.isEmpty()) {
+        if (visibleSections.isEmpty()) {
             Box(GlanceModifier.fillMaxWidth().defaultWeight(), contentAlignment = Alignment.CenterStart) {
                 Text(context.getString(R.string.upcoming_widget_empty),
                     style = TextStyle(color = colors.secondary, fontSize = 14.sp))
             }
         } else {
             Column(GlanceModifier.fillMaxWidth().defaultWeight()) {
-                sections.forEachIndexed { sectionIndex, section ->
+                visibleSections.forEachIndexed { sectionIndex, section ->
                     if (sectionIndex > 0) {
                         WidgetDivider(colors = colors)
                         Spacer(GlanceModifier.height(2.dp))

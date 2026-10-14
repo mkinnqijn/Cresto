@@ -34,7 +34,7 @@ class TodayTodoWidgetDataTest {
             todo(5).copy(endTime = LocalTime.of(8, 0)), todo(6, "23:59"))
         assertEquals(
             listOf(4, 3, 2, 6, 1, 5),
-            upcomingWidgetSections(input, today, limit = 10)
+            upcomingWidgetSections(input, today)
                 .flatMap { section -> section.todos }
                 .map { it.id }
         )
@@ -44,8 +44,8 @@ class TodayTodoWidgetDataTest {
         val input = listOf(todo(3, "09:00"), todo(2, "09:00"),
             todo(1, "09:00").copy(creationDateTime = today.atTime(1, 0)))
         val expected = listOf(2, 3, 1)
-        assertEquals(expected, upcomingWidgetSections(input, today, limit = 10).single().todos.map { it.id })
-        assertEquals(expected, upcomingWidgetSections(input.reversed(), today, limit = 10).single().todos.map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input, today).single().todos.map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input.reversed(), today).single().todos.map { it.id })
     }
 
     @Test fun `time formatting hides untimed and uses only range start`() {
@@ -55,7 +55,7 @@ class TodayTodoWidgetDataTest {
         assertEquals("", todo(4).copy(endTime = LocalTime.NOON).widgetTime())
     }
 
-    @Test fun `two visible items can span dates and sections keep each dates full count`() {
+    @Test fun `all upcoming items are grouped by date with each dates full count`() {
         val input = listOf(
             todo(1),
             todo(2).copy(dueDate = today.plusDays(1)),
@@ -63,15 +63,35 @@ class TodayTodoWidgetDataTest {
             todo(4).copy(dueDate = today.plusDays(2))
         )
         val sections = upcomingWidgetSections(input, today)
-        assertEquals(listOf(today, today.plusDays(1)), sections.map { it.date })
-        assertEquals(listOf(1, 2), sections.map { it.totalCount })
-        assertEquals(listOf(1, 2), sections.flatMap { it.todos }.map { it.id })
+        assertEquals(listOf(today, today.plusDays(1), today.plusDays(2)), sections.map { it.date })
+        assertEquals(listOf(1, 2, 1), sections.map { it.totalCount })
+        assertEquals(listOf(1, 2, 3, 4), sections.flatMap { it.todos }.map { it.id })
     }
 
-    @Test fun `two item limit does not reduce a same-day total count`() {
+    @Test fun `same-day section keeps every upcoming item`() {
         val sections = upcomingWidgetSections(listOf(todo(1), todo(2), todo(3)), today)
         assertEquals(3, sections.single().totalCount)
-        assertEquals(listOf(1, 2), sections.single().todos.map { it.id })
+        assertEquals(listOf(1, 2, 3), sections.single().todos.map { it.id })
+    }
+
+    @Test fun `height fitting only emits dates with at least one complete todo row`() {
+        val sections = upcomingWidgetSections(
+            listOf(
+                todo(1),
+                todo(2),
+                todo(3).copy(dueDate = today.plusDays(1)),
+                todo(4).copy(dueDate = today.plusDays(1))
+            ),
+            today
+        )
+
+        val short = fitWidgetSections(sections, 100f, rowHeightDp = 40f, sectionHeaderHeightDp = 20f)
+        val tall = fitWidgetSections(sections, 200f, rowHeightDp = 40f, sectionHeaderHeightDp = 20f)
+
+        assertEquals(listOf(1, 2), short.flatMap { it.todos }.map { it.id })
+        assertEquals(listOf(1, 2, 3, 4), tall.flatMap { it.todos }.map { it.id })
+        assertEquals(listOf(2, 2), tall.map { it.totalCount })
+        assertEquals(true, tall.all { it.todos.isNotEmpty() })
     }
 
     @Test fun `crossing midnight drops the previous date`() {
