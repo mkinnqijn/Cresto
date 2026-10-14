@@ -29,6 +29,7 @@ object TodayTodoWidgetRefresh {
     const val ACTION_MIDNIGHT = "com.nevoit.cresto.widget.MIDNIGHT"
     private const val WORK_NAME = "today-todo-widget-refresh"
     private const val COMPLETION_EXPIRY_WORK_NAME = "today-todo-widget-completion-expiry"
+    private const val OVERDUE_TRANSITION_WORK_NAME = "today-todo-widget-overdue-transition"
 
     fun observe(context: Context, database: TodoDatabase) {
         val appContext = context.applicationContext
@@ -65,6 +66,21 @@ object TodayTodoWidgetRefresh {
         )
     }
 
+    fun scheduleOverdueTransition(context: Context, delayMillis: Long?) {
+        val workManager = WorkManager.getInstance(context)
+        if (!hasWidgets(context) || delayMillis == null) {
+            workManager.cancelUniqueWork(OVERDUE_TRANSITION_WORK_NAME)
+            return
+        }
+        workManager.enqueueUniqueWork(
+            OVERDUE_TRANSITION_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>()
+                .setInitialDelay(delayMillis + 250L, TimeUnit.MILLISECONDS)
+                .build()
+        )
+    }
+
     private fun midnightIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context, 0,
         Intent(context, TodayTodoWidgetReceiver::class.java).setAction(ACTION_MIDNIGHT),
@@ -88,6 +104,7 @@ object TodayTodoWidgetRefresh {
         context.getSystemService(AlarmManager::class.java).cancel(midnightIntent(context))
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         WorkManager.getInstance(context).cancelUniqueWork(COMPLETION_EXPIRY_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(OVERDUE_TRANSITION_WORK_NAME)
     }
 }
 
@@ -104,13 +121,19 @@ class TodayTodoWidgetRefreshWorker(context: Context, parameters: WorkerParameter
         }
         val repository = GlobalContext.get().get<TodoRepository>()
         val todos = repository.allTodos.first().map { it.todoItem }
+        val today = LocalDate.now()
+        val now = LocalDateTime.now()
         nextWidgetCompletionExpiryDelayMillis(
             todos = todos,
-            today = LocalDate.now(),
-            now = LocalDateTime.now()
+            today = today,
+            now = now
         )?.let { delay ->
             TodayTodoWidgetRefresh.scheduleCompletionExpiry(applicationContext, delay)
         }
+        TodayTodoWidgetRefresh.scheduleOverdueTransition(
+            applicationContext,
+            nextWidgetOverdueTransitionDelayMillis(todos, today, now)
+        )
         Result.success()
     } catch (cancelled: CancellationException) {
         throw cancelled

@@ -44,7 +44,9 @@ import com.nevoit.cresto.R
 import com.nevoit.cresto.data.todo.calendar.TodoCalendarSyncManager
 import com.nevoit.cresto.feature.screenextract.ShizukuScreenshotCapturer
 import com.nevoit.cresto.feature.settings.util.AppLocaleManager
+import com.nevoit.cresto.feature.settings.util.SettingsManager
 import com.nevoit.cresto.feature.settings.util.SettingsViewModel
+import com.nevoit.cresto.feature.widget.TodayTodoWidgetRefresh
 import com.nevoit.cresto.theme.AppButtonColors
 import com.nevoit.cresto.theme.AppColors
 import com.nevoit.cresto.theme.AppSpecs
@@ -88,6 +90,8 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
     val isSuperGraphicUltraModernGirlEnabled by settingsViewModel.isSuperGraphicUltraModernGirlEnabled
     val isExtractScreenQuickTileEnabled by settingsViewModel.isExtractScreenQuickTileEnabled
     val isAutoAddToSystemCalendarEnabled by settingsViewModel.isAutoAddToSystemCalendar
+    val isWidgetShowOverdueEnabled by settingsViewModel.isWidgetShowOverdue
+    val widgetOverdueLimit by settingsViewModel.widgetOverdueLimit
     val context = LocalContext.current
     val requirePermission = stringResource(R.string.calendar_sync_permission_required)
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
@@ -138,6 +142,7 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
     }
 
     var languageButtonBounds by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var widgetOverdueCountButtonBounds by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var menuState by remember { mutableStateOf(MenuState()) }
     val showMenu: (anchorBounds: Rect, items: List<GlasenseMenuItem>) -> Unit =
         { bounds, items ->
@@ -186,6 +191,27 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
                 }
             )
         )
+    }
+    val widgetOverdueCountText = context.resources.getQuantityString(
+        R.plurals.widget_overdue_count,
+        widgetOverdueLimit,
+        widgetOverdueLimit
+    )
+    val widgetOverdueCountMenuItems = remember(widgetOverdueLimit, context) {
+        (SettingsManager.WIDGET_OVERDUE_MIN_ITEMS..SettingsManager.WIDGET_OVERDUE_MAX_ITEMS).map { count ->
+            SelectiveMenuItemData(
+                text = context.resources.getQuantityString(
+                    R.plurals.widget_overdue_count,
+                    count,
+                    count
+                ),
+                isSelected = { widgetOverdueLimit == count },
+                onClick = {
+                    settingsViewModel.onWidgetOverdueLimitChanged(count)
+                    TodayTodoWidgetRefresh.request(context)
+                }
+            )
+        }
     }
 
     val navigationBarHeight = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -272,6 +298,39 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
                     checked = isOverdueMarkerEnabled,
                     onCheckedChange = { settingsViewModel.onOverdueMarkerChanged(it) }) {
                     Text(stringResource(R.string.overdue_marker))
+                }
+            }
+            Section(
+                header = { stringResource(R.string.desktop_widget) },
+                footer = { stringResource(R.string.widget_overdue_todos_description) }
+            ) {
+                CustomSwitchRow(
+                    checked = isWidgetShowOverdueEnabled,
+                    onCheckedChange = { enabled ->
+                        settingsViewModel.onWidgetShowOverdueChanged(enabled)
+                        TodayTodoWidgetRefresh.request(context)
+                    }
+                ) {
+                    Text(stringResource(R.string.widget_show_overdue_todos))
+                }
+                Row(
+                    enabled = isWidgetShowOverdueEnabled,
+                    onClick = {
+                        widgetOverdueCountButtonBounds?.let {
+                            showMenu(it.boundsInWindow(), widgetOverdueCountMenuItems)
+                        }
+                    },
+                    trailing = {
+                        Text(
+                            text = widgetOverdueCountText,
+                            modifier = Modifier.onGloballyPositioned { coordinates ->
+                                widgetOverdueCountButtonBounds = coordinates
+                            }
+                        )
+                    },
+                    accessory = ListRowAccessory.SelectIndicator
+                ) {
+                    Text(stringResource(R.string.widget_overdue_todo_count))
                 }
             }
             Section(

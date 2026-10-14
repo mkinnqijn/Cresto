@@ -42,6 +42,7 @@ import com.nevoit.cresto.theme.resolveAppColors
 import kotlinx.coroutines.flow.first
 import org.koin.core.context.GlobalContext
 import java.time.LocalDate
+import java.time.LocalDateTime
 import androidx.glance.color.ColorProvider as DayNightColorProvider
 
 const val EXTRA_WIDGET_ADD_TODO = "widget_add_todo"
@@ -57,6 +58,8 @@ private data class TodayTodoWidgetColors(
     val content: ColorProvider,
     val secondary: ColorProvider,
     val divider: ColorProvider,
+    val overdue: ColorProvider,
+    val overdueDivider: ColorProvider,
     val primary: ColorProvider,
     val onPrimary: ColorProvider,
     val checkboxOutline: ColorProvider
@@ -83,14 +86,30 @@ object TodayTodoWidget : GlanceAppWidget() {
             val hiddenCompletedTokens = currentState(WidgetHiddenCompletedKey) ?: emptySet()
             val today = remember(revision) { LocalDate.now() }
             val todos by repository.allTodos.collectAsState(initial = initialTodos)
+            val todoItems = todos.map { it.todoItem }
+            val now = remember(revision, todos) { LocalDateTime.now() }
+            val showOverdue = SettingsManager.isWidgetShowOverdueState.value
+            val overdueLimit = SettingsManager.widgetOverdueLimitState.intValue
+            val normalSections = upcomingWidgetSections(
+                todos = todoItems,
+                today = today,
+                now = now,
+                hiddenCompletedTokens = hiddenCompletedTokens
+            )
+            val overdueSection = if (showOverdue) {
+                overdueWidgetSection(
+                    todos = todoItems,
+                    today = today,
+                    now = now,
+                    limit = overdueLimit,
+                    hiddenCompletedTokens = hiddenCompletedTokens
+                )
+            } else null
+            val sections = listOfNotNull(overdueSection) + normalSections
             TodayTodoWidgetContent(
                 context = context,
                 today = today,
-                sections = upcomingWidgetSections(
-                    todos = todos.map { it.todoItem },
-                    today = today,
-                    hiddenCompletedTokens = hiddenCompletedTokens
-                ),
+                sections = sections,
                 optionHeight = optionHeight
             )
         }
@@ -134,6 +153,14 @@ private fun rememberTodayTodoWidgetColors(context: Context): TodayTodoWidgetColo
             divider = DayNightColorProvider(
                 day = lightColors.content.copy(alpha = 0.08f),
                 night = darkColors.content.copy(alpha = 0.12f)
+            ),
+            overdue = DayNightColorProvider(
+                day = lightColors.error.copy(alpha = 0.68f),
+                night = darkColors.error.copy(alpha = 0.72f)
+            ),
+            overdueDivider = DayNightColorProvider(
+                day = lightColors.error.copy(alpha = 0.26f),
+                night = darkColors.error.copy(alpha = 0.32f)
             ),
             primary = DayNightColorProvider(
                 day = lightColors.primary,
@@ -232,7 +259,11 @@ private fun TodayTodoWidgetContent(
                 visibleSections.forEachIndexed { sectionIndex, section ->
                     Column(GlanceModifier.fillMaxWidth()) {
                         if (sectionIndex > 0) {
-                            WidgetDivider(colors = colors)
+                            WidgetDivider(
+                                colors = colors,
+                                overdueBoundary = section.isOverdue ||
+                                    visibleSections[sectionIndex - 1].isOverdue
+                            )
                             Spacer(GlanceModifier.height(2.dp))
                         }
                         WidgetDateHeader(
@@ -277,12 +308,17 @@ private fun WidgetDateHeader(
     colors: TodayTodoWidgetColors,
     expanded: Boolean
 ) {
-    val label = widgetDateLabel(
-        date = section.date,
-        today = today,
-        todayLabel = context.getString(R.string.today),
-        tomorrowLabel = context.getString(R.string.tomorrow)
-    )
+    val label = if (section.isOverdue) {
+        context.getString(R.string.overdue)
+    } else {
+        widgetDateLabel(
+            date = section.date,
+            today = today,
+            todayLabel = context.getString(R.string.today),
+            tomorrowLabel = context.getString(R.string.tomorrow),
+            dayAfterTomorrowLabel = context.getString(R.string.day_after_tomorrow)
+        )
+    }
     val count = context.resources.getQuantityString(
         R.plurals.widget_date_total,
         section.totalCount,
@@ -296,7 +332,7 @@ private fun WidgetDateHeader(
             text = label,
             modifier = GlanceModifier.defaultWeight(),
             style = TextStyle(
-                color = colors.secondary,
+                color = if (section.isOverdue) colors.overdue else colors.secondary,
                 fontSize = if (expanded) 14.sp else 12.sp,
                 fontWeight = FontWeight.Medium
             ),
@@ -311,12 +347,16 @@ private fun WidgetDateHeader(
 }
 
 @Composable
-private fun WidgetDivider(colors: TodayTodoWidgetColors, startPadding: Dp = 0.dp) {
+private fun WidgetDivider(
+    colors: TodayTodoWidgetColors,
+    startPadding: Dp = 0.dp,
+    overdueBoundary: Boolean = false
+) {
     Box(
         modifier = GlanceModifier.fillMaxWidth()
             .padding(start = startPadding)
             .height(1.dp)
-            .background(colors.divider)
+            .background(if (overdueBoundary) colors.overdueDivider else colors.divider)
     ) {}
 }
 

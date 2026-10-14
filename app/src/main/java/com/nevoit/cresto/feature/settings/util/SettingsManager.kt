@@ -39,6 +39,8 @@ object SettingsManager {
     private const val KEY_AUTO_ADD_TO_SYSTEM_CALENDAR = "auto_add_to_system_calendar"
     private const val KEY_CHECK_UPDATES_ON_STARTUP = "check_updates_on_startup"
     private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
+    private const val KEY_WIDGET_SHOW_OVERDUE = "widget_show_overdue"
+    private const val KEY_WIDGET_OVERDUE_LIMIT = "widget_overdue_limit"
     private const val DEFAULT_AI_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
     private const val DEFAULT_AI_MODEL = "glm-4-flash"
     private const val KEY_APP_ICON = "app_icon"
@@ -48,6 +50,9 @@ object SettingsManager {
     const val MODE_LIGHT = 0
     const val MODE_DARK = 1
     const val MODE_SYSTEM = 2
+    const val WIDGET_OVERDUE_MIN_ITEMS = 1
+    const val WIDGET_OVERDUE_MAX_ITEMS = 8
+    const val WIDGET_OVERDUE_DEFAULT_ITEMS = 2
 
     val colorModeState = mutableIntStateOf(mmkv.decodeInt(KEY_COLOR_MODE, MODE_SYSTEM))
     val isCustomPrimaryColorEnabledState =
@@ -84,6 +89,12 @@ object SettingsManager {
         mutableStateOf(mmkv.decodeBool(KEY_AUTO_ADD_TO_SYSTEM_CALENDAR, false))
     val isCheckUpdatesOnStartupState =
         mutableStateOf(mmkv.decodeBool(KEY_CHECK_UPDATES_ON_STARTUP, true))
+    val isWidgetShowOverdueState =
+        mutableStateOf(mmkv.decodeBool(KEY_WIDGET_SHOW_OVERDUE, false))
+    val widgetOverdueLimitState = mutableIntStateOf(
+        mmkv.decodeInt(KEY_WIDGET_OVERDUE_LIMIT, WIDGET_OVERDUE_DEFAULT_ITEMS)
+            .coerceIn(WIDGET_OVERDUE_MIN_ITEMS, WIDGET_OVERDUE_MAX_ITEMS)
+    )
     val appIconState = mutableStateOf(
         mmkv.decodeString(KEY_APP_ICON, AppIconManager.AppIcon.DEFAULT.name)
             ?.let { name ->
@@ -262,6 +273,21 @@ object SettingsManager {
         get() = mmkv.decodeLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
         set(value) {
             mmkv.encode(KEY_LAST_UPDATE_CHECK_AT, value)
+        }
+
+    var isWidgetShowOverdue: Boolean
+        get() = isWidgetShowOverdueState.value
+        set(value) {
+            mmkv.encode(KEY_WIDGET_SHOW_OVERDUE, value)
+            isWidgetShowOverdueState.value = value
+        }
+
+    var widgetOverdueLimit: Int
+        get() = widgetOverdueLimitState.intValue
+        set(value) {
+            val bounded = value.coerceIn(WIDGET_OVERDUE_MIN_ITEMS, WIDGET_OVERDUE_MAX_ITEMS)
+            mmkv.encode(KEY_WIDGET_OVERDUE_LIMIT, bounded)
+            widgetOverdueLimitState.intValue = bounded
         }
 
     var appIcon: AppIconManager.AppIcon

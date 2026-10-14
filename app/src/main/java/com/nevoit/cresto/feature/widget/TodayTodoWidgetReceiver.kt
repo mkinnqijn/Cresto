@@ -13,6 +13,7 @@ class TodayTodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         TodayTodoWidgetRefresh.scheduleMidnight(context)
+        TodayTodoWidgetRefresh.request(context)
     }
 
     override fun onDisabled(context: Context) {

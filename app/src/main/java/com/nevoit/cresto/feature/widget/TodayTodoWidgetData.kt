@@ -3,6 +3,7 @@ package com.nevoit.cresto.feature.widget
 import com.nevoit.cresto.data.todo.TodoItem
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.Duration
 import java.time.format.DateTimeFormatter
@@ -10,7 +11,8 @@ import java.time.format.DateTimeFormatter
 internal data class WidgetTodoSection(
     val date: LocalDate,
     val totalCount: Int,
-    val todos: List<TodoItem>
+    val todos: List<TodoItem>,
+    val isOverdue: Boolean = false
 )
 
 internal const val WIDGET_COMPLETION_UNDO_MINUTES = 3L
@@ -23,6 +25,7 @@ internal fun upcomingWidgetSections(
     hiddenCompletedTokens: Set<String> = emptySet()
 ): List<WidgetTodoSection> {
     val completionCutoff = now.minusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)
+    val nowTime = now.toLocalTime()
     val upcoming = todos.asSequence()
         .filter { todo ->
             val dueDate = todo.dueDate
@@ -32,7 +35,8 @@ internal fun upcomingWidgetSections(
             dueDate != null &&
                 !dueDate.isBefore(today) &&
                 (!todo.isCompleted || recentlyCompleted) &&
-                todo.deletedAt == null
+                todo.deletedAt == null &&
+                !todo.hasWidgetOverdueDeadline(today, nowTime)
         }
         .sortedWith(
             compareBy<TodoItem> { it.dueDate }
@@ -57,6 +61,80 @@ internal fun upcomingWidgetSections(
             )
         }
 }
+
+/** Mirrors the app list's existing overdue/expired rules. */
+internal fun TodoItem.isWidgetOverdue(today: LocalDate, nowTime: LocalTime): Boolean {
+    if (isCompleted || deletedAt != null) return false
+    return hasWidgetOverdueDeadline(today, nowTime)
+}
+
+private fun TodoItem.hasWidgetOverdueDeadline(today: LocalDate, nowTime: LocalTime): Boolean {
+    val date = dueDate ?: return false
+    if (date.isBefore(today)) return true
+    if (date != today) return false
+    return when {
+        endTime != null -> nowTime.isAfter(endTime)
+        startTime != null -> nowTime.isAfter(startTime)
+        else -> false
+    }
+}
+
+/** One merged overdue section, with the most recently expired items first. */
+internal fun overdueWidgetSection(
+    todos: List<TodoItem>,
+    today: LocalDate,
+    now: LocalDateTime = LocalDateTime.now(),
+    limit: Int,
+    hiddenCompletedTokens: Set<String> = emptySet()
+): WidgetTodoSection? {
+    val completionCutoff = now.minusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)
+    val overdue = todos.asSequence()
+        .filter { todo ->
+            val recentlyCompleted = todo.isCompleted &&
+                todo.completedDateTime?.isAfter(completionCutoff) == true &&
+                todo.widgetCompletionToken() !in hiddenCompletedTokens
+            todo.deletedAt == null &&
+                todo.hasWidgetOverdueDeadline(today, now.toLocalTime()) &&
+                (!todo.isCompleted || recentlyCompleted)
+        }
+        .sortedWith(
+            compareByDescending<TodoItem> { it.widgetExpiryDateTime(today) }
+                .thenByDescending { it.creationDateTime }
+                .thenByDescending { it.id }
+        )
+        .toList()
+    if (overdue.isEmpty()) return null
+    return WidgetTodoSection(
+        date = today,
+        totalCount = overdue.count { !it.isCompleted },
+        todos = overdue.take(limit.coerceAtLeast(1)),
+        isOverdue = true
+    )
+}
+
+private fun TodoItem.widgetExpiryDateTime(today: LocalDate): LocalDateTime {
+    val date = requireNotNull(dueDate)
+    val time = endTime ?: startTime
+    return when {
+        time != null -> date.atTime(time)
+        date.isBefore(today) -> date.plusDays(1).atStartOfDay()
+        else -> date.atStartOfDay()
+    }
+}
+
+/** Delay until the next incomplete item becomes overdue today. */
+internal fun nextWidgetOverdueTransitionDelayMillis(
+    todos: List<TodoItem>,
+    today: LocalDate,
+    now: LocalDateTime = LocalDateTime.now()
+): Long? = todos.asSequence()
+    .filter { todo ->
+        !todo.isCompleted && todo.deletedAt == null && todo.dueDate == today
+    }
+    .mapNotNull { todo -> (todo.endTime ?: todo.startTime)?.let(today::atTime) }
+    .map { transition -> Duration.between(now, transition).toMillis() }
+    .filter { it >= 0L }
+    .minOrNull()
 
 internal fun nextWidgetCompletionExpiryDelayMillis(
     todos: List<TodoItem>,
@@ -124,12 +202,14 @@ internal fun widgetDateLabel(
     date: LocalDate,
     today: LocalDate,
     todayLabel: String,
-    tomorrowLabel: String
+    tomorrowLabel: String,
+    dayAfterTomorrowLabel: String
 ): String {
     val shortDate = "${date.monthValue}/${date.dayOfMonth}"
     return when (date) {
         today -> "$todayLabel $shortDate"
         today.plusDays(1) -> "$tomorrowLabel $shortDate"
+        today.plusDays(2) -> "$dayAfterTomorrowLabel $shortDate"
         else -> shortDate
     }
 }

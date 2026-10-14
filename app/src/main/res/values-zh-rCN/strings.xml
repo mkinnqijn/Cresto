@@ -5,8 +5,15 @@
     <string name="today_widget_empty">今天没有待办</string>
     <string name="upcoming_widget_empty">暂无待办事项</string>
     <string name="hide_completed_from_widget">从小组件隐藏</string>
+    <string name="desktop_widget">桌面小组件</string>
+    <string name="widget_show_overdue_todos">小组件显示逾期任务</string>
+    <string name="widget_overdue_todo_count">小组件逾期任务显示数量</string>
+    <string name="widget_overdue_todos_description">在桌面小组件中最多显示所选数量的未完成逾期任务。</string>
     <plurals name="widget_date_total">
         <item quantity="other">共 %d 项</item>
+    </plurals>
+    <plurals name="widget_overdue_count">
+        <item quantity="other">%d 条</item>
     </plurals>
     <plurals name="today_widget_count">
         <item quantity="other">%d 项</item>
@@ -174,6 +181,7 @@
     <string name="todo_in_progress">进行中</string>
     <string name="overdue_with_date">已逾期 · %1$s</string>
     <string name="tomorrow">明天</string>
+    <string name="day_after_tomorrow">后天</string>
     <string name="next_week">下周</string>
     <string name="new_todo">新建待办事项</string>
     <string name="ok">好</string>

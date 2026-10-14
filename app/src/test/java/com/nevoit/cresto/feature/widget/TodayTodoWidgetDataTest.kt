@@ -35,7 +35,7 @@ class TodayTodoWidgetDataTest {
             todo(5).copy(endTime = LocalTime.of(8, 0)), todo(6, "23:59"))
         assertEquals(
             listOf(4, 3, 2, 6, 1, 5),
-            upcomingWidgetSections(input, today)
+            upcomingWidgetSections(input, today, today.atStartOfDay())
                 .flatMap { section -> section.todos }
                 .map { it.id }
         )
@@ -45,8 +45,8 @@ class TodayTodoWidgetDataTest {
         val input = listOf(todo(3, "09:00"), todo(2, "09:00"),
             todo(1, "09:00").copy(creationDateTime = today.atTime(1, 0)))
         val expected = listOf(2, 3, 1)
-        assertEquals(expected, upcomingWidgetSections(input, today).single().todos.map { it.id })
-        assertEquals(expected, upcomingWidgetSections(input.reversed(), today).single().todos.map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input, today, today.atStartOfDay()).single().todos.map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input.reversed(), today, today.atStartOfDay()).single().todos.map { it.id })
     }
 
     @Test fun `time formatting hides untimed and shows complete ranges`() {
@@ -157,10 +157,76 @@ class TodayTodoWidgetDataTest {
         )
     }
 
-    @Test fun `date labels distinguish today tomorrow and later dates`() {
-        assertEquals("Today 10/13", widgetDateLabel(today, today, "Today", "Tomorrow"))
-        assertEquals("Tomorrow 10/14", widgetDateLabel(today.plusDays(1), today, "Today", "Tomorrow"))
-        assertEquals("10/15", widgetDateLabel(today.plusDays(2), today, "Today", "Tomorrow"))
+    @Test fun `date labels distinguish today tomorrow day after tomorrow and later dates`() {
+        assertEquals("Today 10/13", widgetDateLabel(today, today, "Today", "Tomorrow", "Day after tomorrow"))
+        assertEquals("Tomorrow 10/14", widgetDateLabel(today.plusDays(1), today, "Today", "Tomorrow", "Day after tomorrow"))
+        assertEquals("Day after tomorrow 10/15", widgetDateLabel(today.plusDays(2), today, "Today", "Tomorrow", "Day after tomorrow"))
+        assertEquals("10/16", widgetDateLabel(today.plusDays(3), today, "Today", "Tomorrow", "Day after tomorrow"))
+    }
+
+    @Test fun `overdue predicate matches app date and time rules`() {
+        val noon = LocalTime.NOON
+        assertEquals(true, todo(1).copy(dueDate = today.minusDays(1)).isWidgetOverdue(today, noon))
+        assertEquals(true, todo(2, "11:00").isWidgetOverdue(today, noon))
+        assertEquals(false, todo(3, "11:00").copy(endTime = noon).isWidgetOverdue(today, noon))
+        assertEquals(true, todo(3, "11:00").copy(endTime = LocalTime.of(11, 59)).isWidgetOverdue(today, noon))
+        assertEquals(false, todo(4).isWidgetOverdue(today, noon))
+        assertEquals(false, todo(5).copy(dueDate = today.plusDays(1)).isWidgetOverdue(today, noon))
+        assertEquals(false, todo(6, "11:00").copy(isCompleted = true).isWidgetOverdue(today, noon))
+        assertEquals(false, todo(7, "11:00").copy(deletedAt = today.atStartOfDay()).isWidgetOverdue(today, noon))
+    }
+
+    @Test fun `overdue section merges dates limits rows and puts newest expiry first`() {
+        val now = today.atTime(15, 0)
+        val section = requireNotNull(overdueWidgetSection(
+            todos = listOf(
+                todo(1).copy(dueDate = today.minusDays(1), startTime = LocalTime.of(23, 0)),
+                todo(2).copy(dueDate = today.minusDays(1)),
+                todo(3, "14:00"),
+                todo(4, "12:00").copy(endTime = LocalTime.of(16, 0)),
+                todo(5).copy(dueDate = today.plusDays(1))
+            ),
+            today = today,
+            now = now,
+            limit = 2
+        ))
+        assertEquals(true, section.isOverdue)
+        assertEquals(3, section.totalCount)
+        assertEquals(listOf(3, 2), section.todos.map { it.id })
+    }
+
+    @Test fun `recently completed overdue todo remains for undo and can be hidden`() {
+        val now = today.atTime(15, 0)
+        val pending = todo(1, "14:00")
+        val completed = todo(2).copy(
+            dueDate = today.minusDays(1),
+            isCompleted = true,
+            completedDateTime = now.minusMinutes(2)
+        )
+        val section = requireNotNull(overdueWidgetSection(
+            listOf(pending, completed), today, now, 8
+        ))
+        assertEquals(1, section.totalCount)
+        assertEquals(listOf(1, 2), section.todos.map { it.id })
+        val hidden = requireNotNull(overdueWidgetSection(
+            listOf(pending, completed), today, now, 8,
+            setOf(completed.widgetCompletionToken())
+        ))
+        assertEquals(listOf(1), hidden.todos.map { it.id })
+    }
+
+    @Test fun `next overdue transition uses end time when present`() {
+        val now = today.atTime(15, 0)
+        val delay = nextWidgetOverdueTransitionDelayMillis(
+            listOf(
+                todo(1, "14:00").copy(endTime = LocalTime.of(15, 30)),
+                todo(2, "16:00"),
+                todo(3)
+            ),
+            today,
+            now
+        )
+        assertEquals(30 * 60 * 1000L, delay)
     }
 
     @Test fun `midnight is local next day including daylight saving changes`() {

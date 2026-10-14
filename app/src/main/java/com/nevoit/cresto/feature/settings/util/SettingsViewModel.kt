@@ -20,6 +20,8 @@ class SettingsViewModel : ViewModel() {
     val isExtractScreenQuickTileEnabled = SettingsManager.isExtractScreenQuickTileEnabledState
     val isAutoAddToSystemCalendar = SettingsManager.isAutoAddToSystemCalendarState
     val isCheckUpdatesOnStartup = SettingsManager.isCheckUpdatesOnStartupState
+    val isWidgetShowOverdue = SettingsManager.isWidgetShowOverdueState
+    val widgetOverdueLimit = SettingsManager.widgetOverdueLimitState
     val appIcon = SettingsManager.appIconState
 
     fun onCustomPrimaryColorChanged(isEnabled: Boolean) {
@@ -83,6 +85,14 @@ class SettingsViewModel : ViewModel() {
 
     fun onCheckUpdatesOnStartupChanged(isEnabled: Boolean) {
         SettingsManager.isCheckUpdatesOnStartup = isEnabled
+    }
+
+    fun onWidgetShowOverdueChanged(isEnabled: Boolean) {
+        SettingsManager.isWidgetShowOverdue = isEnabled
+    }
+
+    fun onWidgetOverdueLimitChanged(limit: Int) {
+        SettingsManager.widgetOverdueLimit = limit
     }
 
     fun onAppIconChanged(context: Context, icon: AppIconManager.AppIcon) {

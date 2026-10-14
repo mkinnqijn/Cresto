@@ -5,9 +5,17 @@
     <string name="today_widget_empty">Nothing due today</string>
     <string name="upcoming_widget_empty">No upcoming todos</string>
     <string name="hide_completed_from_widget">Hide from widget</string>
+    <string name="desktop_widget">Desktop widget</string>
+    <string name="widget_show_overdue_todos">Show overdue todos in widget</string>
+    <string name="widget_overdue_todo_count">Overdue todo limit</string>
+    <string name="widget_overdue_todos_description">Show up to the selected number of incomplete overdue todos in the desktop widget.</string>
     <plurals name="widget_date_total">
         <item quantity="one">%d total</item>
         <item quantity="other">%d total</item>
+    </plurals>
+    <plurals name="widget_overdue_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
     </plurals>
     <plurals name="today_widget_count">
         <item quantity="one">%d item</item>
@@ -178,6 +186,7 @@
     <string name="todo_in_progress">In Progress</string>
     <string name="overdue_with_date">Overdue - %1$s</string>
     <string name="tomorrow">Tomorrow</string>
+    <string name="day_after_tomorrow">Day after tomorrow</string>
     <string name="next_week">Next Week</string>
     <string name="new_todo">New Todo</string>
     <string name="ok">OK</string>
