@@ -57,6 +57,19 @@ fun sortTodos(
     order: SortOrder,
     type: TodoListType
 ): List<TodoItemWithSubTodos> {
+    if (type == TodoListType.COMPLETED) {
+        return list.sortedWith { a, b ->
+            val completedA = a.todoItem.completedDateTime
+            val completedB = b.todoItem.completedDateTime
+            when {
+                completedA == null && completedB == null -> 0
+                completedA == null -> 1
+                completedB == null -> -1
+                else -> completedB.compareTo(completedA)
+            }
+        }
+    }
+
     val currentSortOption =
         SortOption.entries.getOrElse(option.ordinal) { SortOption.DEFAULT }
     val currentSortOrder =

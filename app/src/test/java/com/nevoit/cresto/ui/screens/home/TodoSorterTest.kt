@@ -81,7 +81,7 @@ class TodoSorterTest {
     }
 
     @Test
-    fun flagFallback_usesCompletedTime_forCompletedTodos() {
+    fun completedTodos_ignoreSelectedSortAndAlwaysUseNewestCompletionFirst() {
         val earlyCreatedLateCompleted = todo(
             id = 1,
             title = "same-flag",
@@ -96,15 +96,24 @@ class TodoSorterTest {
             creationDateTime = dt("2026-03-02T08:00:00"),
             completedDateTime = dt("2026-03-01T08:00:00")
         )
-
-        val sorted = sortTodos(
-            list = listOf(earlyCreatedLateCompleted, laterCreatedEarlyCompleted),
-            option = SortOption.FLAG,
-            order = SortOrder.ASCENDING,
-            type = TodoListType.COMPLETED
+        val missingCompletionTime = todo(
+            id = 3,
+            title = "missing-completion-time",
+            creationDateTime = dt("2026-03-04T08:00:00")
         )
 
-        assertEquals(listOf(2, 1), sorted.map { it.todoItem.id })
+        SortOption.entries.forEach { option ->
+            SortOrder.entries.forEach { order ->
+                val sorted = sortTodos(
+                    list = listOf(laterCreatedEarlyCompleted, missingCompletionTime, earlyCreatedLateCompleted),
+                    option = option,
+                    order = order,
+                    type = TodoListType.COMPLETED
+                )
+
+                assertEquals(listOf(1, 2, 3), sorted.map { it.todoItem.id })
+            }
+        }
     }
 
     @Test
@@ -133,7 +142,7 @@ class TodoSorterTest {
     }
 
     @Test
-    fun titleFallback_usesCompletedTime_forCompletedTodos() {
+    fun completedTodos_keepStableOrderWhenCompletionTimesMatch() {
         val first = todo(
             id = 20,
             title = "same-title",
@@ -144,11 +153,11 @@ class TodoSorterTest {
             id = 21,
             title = "same-title",
             creationDateTime = dt("2026-01-11T10:00:00"),
-            completedDateTime = dt("2026-01-09T10:00:00")
+            completedDateTime = dt("2026-01-12T10:00:00")
         )
 
         val sorted = sortTodos(
-            list = listOf(first, second),
+            list = listOf(second, first),
             option = SortOption.TITLE,
             order = SortOrder.ASCENDING,
             type = TodoListType.COMPLETED

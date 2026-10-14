@@ -331,12 +331,8 @@ private fun TodayTodoRow(
     val location = todo.location.trim()
     val hasTime = todo.startTime != null
     val hasLocation = location.isNotEmpty()
-    val titleMaxLines = when {
-        expanded -> 4
-        spacious -> 3
-        else -> 2
-    }
-    val metadataMaxLines = if (spacious) 2 else 1
+    val titleMaxLines = 4
+    val metadataMaxLines = 3
     Row(
         modifier = GlanceModifier.fillMaxWidth()
             .clickable(actionStartActivity<DetailActivity>(actionParametersOf(WidgetTodoIdKey to todo.id)))
@@ -457,7 +453,7 @@ private fun WidgetMetadata(
     expanded: Boolean,
     maxLines: Int
 ) {
-    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Image(
             provider = ImageProvider(icon),
             contentDescription = null,
@@ -496,11 +492,7 @@ private fun estimateWidgetTodoRowHeight(
     val titleWidth = (widgetWidthDp - horizontalPadding - checkboxAndSpacing -
         hideButtonWidth - if (hasMetadata) metadataWidth else 0f).coerceAtLeast(56f)
     val titleFontSize = if (expanded) 16f else 14f
-    val titleMaxLines = when {
-        expanded -> 4
-        spacious -> 3
-        else -> 2
-    }
+    val titleMaxLines = 4
     val titleLines = estimateTextLines(todo.title, titleWidth, titleFontSize, titleMaxLines)
     val titleHeight = titleLines * if (expanded) 20f else 18f
 
@@ -517,7 +509,7 @@ private fun estimateWidgetTodoRowHeight(
             text = todo.location.trim(),
             availableWidthDp = metadataTextWidth,
             fontSizeSp = metadataFontSize,
-            maxLines = if (spacious) 2 else 1
+            maxLines = 3
         )
     }
     val metadataLineHeight = if (expanded) 18f else 16f
