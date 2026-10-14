@@ -49,9 +49,9 @@ class TodayTodoWidgetDataTest {
         assertEquals(expected, upcomingWidgetSections(input.reversed(), today).single().todos.map { it.id })
     }
 
-    @Test fun `time formatting hides untimed and uses only range start`() {
+    @Test fun `time formatting hides untimed and shows complete ranges`() {
         assertEquals("09:00", todo(1, "09:00").widgetTime())
-        assertEquals("18:30", todo(2, "18:30").copy(endTime = LocalTime.of(20, 30)).widgetTime())
+        assertEquals("18:30 - 20:30", todo(2, "18:30").copy(endTime = LocalTime.of(20, 30)).widgetTime())
         assertEquals("", todo(3).widgetTime())
         assertEquals("", todo(4).copy(endTime = LocalTime.NOON).widgetTime())
     }
@@ -99,6 +99,24 @@ class TodayTodoWidgetDataTest {
         )
     }
 
+    @Test fun `widget hidden completion token only removes that completed occurrence`() {
+        val now = LocalDateTime.of(2026, 10, 13, 12, 0)
+        val completed = todo(2).copy(
+            isCompleted = true,
+            completedDateTime = now.minusMinutes(1)
+        )
+
+        val sections = upcomingWidgetSections(
+            todos = listOf(todo(1), completed),
+            today = today,
+            now = now,
+            hiddenCompletedTokens = setOf(completed.widgetCompletionToken())
+        )
+
+        assertEquals(listOf(1), sections.single().todos.map { it.id })
+        assertEquals(1, sections.single().totalCount)
+    }
+
     @Test fun `height fitting only emits dates with at least one complete todo row`() {
         val sections = upcomingWidgetSections(
             listOf(
@@ -110,13 +128,25 @@ class TodayTodoWidgetDataTest {
             today
         )
 
-        val short = fitWidgetSections(sections, 100f, rowHeightDp = 40f, sectionHeaderHeightDp = 20f)
-        val tall = fitWidgetSections(sections, 200f, rowHeightDp = 40f, sectionHeaderHeightDp = 20f)
+        val short = fitWidgetSections(sections, 100f, rowHeightDp = { 40f }, sectionHeaderHeightDp = 20f)
+        val tall = fitWidgetSections(sections, 200f, rowHeightDp = { 40f }, sectionHeaderHeightDp = 20f)
 
         assertEquals(listOf(1, 2), short.flatMap { it.todos }.map { it.id })
         assertEquals(listOf(1, 2, 3, 4), tall.flatMap { it.todos }.map { it.id })
         assertEquals(listOf(2, 2), tall.map { it.totalCount })
         assertEquals(true, tall.all { it.todos.isNotEmpty() })
+    }
+
+    @Test fun `height fitting accounts for different todo row heights`() {
+        val sections = upcomingWidgetSections(listOf(todo(1), todo(2), todo(3)), today)
+        val visible = fitWidgetSections(
+            sections = sections,
+            availableHeightDp = 135f,
+            rowHeightDp = { todo -> if (todo.id == 2) 70f else 40f },
+            sectionHeaderHeightDp = 20f
+        )
+
+        assertEquals(listOf(1, 2), visible.single().todos.map { it.id })
     }
 
     @Test fun `crossing midnight drops the previous date`() {

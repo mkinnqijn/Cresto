@@ -19,14 +19,16 @@ internal const val WIDGET_COMPLETION_UNDO_MINUTES = 3L
 internal fun upcomingWidgetSections(
     todos: List<TodoItem>,
     today: LocalDate,
-    now: LocalDateTime = LocalDateTime.now()
+    now: LocalDateTime = LocalDateTime.now(),
+    hiddenCompletedTokens: Set<String> = emptySet()
 ): List<WidgetTodoSection> {
     val completionCutoff = now.minusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)
     val upcoming = todos.asSequence()
         .filter { todo ->
             val dueDate = todo.dueDate
             val recentlyCompleted = todo.isCompleted &&
-                todo.completedDateTime?.isAfter(completionCutoff) == true
+                todo.completedDateTime?.isAfter(completionCutoff) == true &&
+                todo.widgetCompletionToken() !in hiddenCompletedTokens
             dueDate != null &&
                 !dueDate.isBefore(today) &&
                 (!todo.isCompleted || recentlyCompleted) &&
@@ -80,21 +82,23 @@ internal fun nextWidgetCompletionExpiryDelayMillis(
 internal fun fitWidgetSections(
     sections: List<WidgetTodoSection>,
     availableHeightDp: Float,
-    rowHeightDp: Float,
+    rowHeightDp: (TodoItem) -> Float,
     sectionHeaderHeightDp: Float
 ): List<WidgetTodoSection> {
     var remainingHeight = availableHeightDp.coerceAtLeast(0f)
     val visibleSections = mutableListOf<WidgetTodoSection>()
 
     for (section in sections) {
-        if (section.todos.isEmpty() || remainingHeight < sectionHeaderHeightDp + rowHeightDp) break
+        val firstRowHeight = section.todos.firstOrNull()?.let(rowHeightDp) ?: break
+        if (remainingHeight < sectionHeaderHeightDp + firstRowHeight) break
 
         remainingHeight -= sectionHeaderHeightDp
-        val visibleTodos = section.todos.takeWhile {
-            if (remainingHeight < rowHeightDp) {
+        val visibleTodos = section.todos.takeWhile { todo ->
+            val height = rowHeightDp(todo)
+            if (remainingHeight < height) {
                 false
             } else {
-                remainingHeight -= rowHeightDp
+                remainingHeight -= height
                 true
             }
         }
@@ -106,8 +110,15 @@ internal fun fitWidgetSections(
     return visibleSections
 }
 
-internal fun TodoItem.widgetTime(): String =
-    startTime?.format(DateTimeFormatter.ofPattern("HH:mm")).orEmpty()
+internal fun TodoItem.widgetTime(): String {
+    val start = startTime ?: return ""
+    val formatter = DateTimeFormatter.ofPattern("HH:mm")
+    val startText = start.format(formatter)
+    return endTime?.let { end -> "$startText - ${end.format(formatter)}" } ?: startText
+}
+
+internal fun TodoItem.widgetCompletionToken(): String =
+    "$id:${completedDateTime?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).orEmpty()}"
 
 internal fun widgetDateLabel(
     date: LocalDate,

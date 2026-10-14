@@ -4,6 +4,7 @@
     <string name="today_widget_description">See your next incomplete todos</string>
     <string name="today_widget_empty">Nothing due today</string>
     <string name="upcoming_widget_empty">No upcoming todos</string>
+    <string name="hide_completed_from_widget">Hide from widget</string>
     <plurals name="widget_date_total">
         <item quantity="one">%d total</item>
         <item quantity="other">%d total</item>

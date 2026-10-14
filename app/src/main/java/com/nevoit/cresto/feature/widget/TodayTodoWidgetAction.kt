@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.state.updateAppWidgetState
 import com.nevoit.cresto.data.todo.TodoRepository
 import com.nevoit.cresto.data.todo.reminder.TodoAlarmScheduler
 import java.time.LocalDateTime
@@ -49,5 +50,20 @@ class ToggleWidgetTodoCompletionAction : ActionCallback {
 
         TodayTodoWidget.update(context, glanceId)
         TodayTodoWidgetRefresh.request(context)
+    }
+}
+
+class HideCompletedTodoFromWidgetAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val completionToken = parameters[WidgetTodoCompletionTokenKey] ?: return
+        updateAppWidgetState(context, glanceId) { state ->
+            state[WidgetHiddenCompletedKey] =
+                state[WidgetHiddenCompletedKey].orEmpty() + completionToken
+        }
+        TodayTodoWidget.update(context, glanceId)
     }
 }

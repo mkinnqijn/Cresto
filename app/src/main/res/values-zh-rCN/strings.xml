@@ -4,6 +4,7 @@
     <string name="today_widget_description">查看接下来未完成的待办事项</string>
     <string name="today_widget_empty">今天没有待办</string>
     <string name="upcoming_widget_empty">暂无待办事项</string>
+    <string name="hide_completed_from_widget">从小组件隐藏</string>
     <plurals name="widget_date_total">
         <item quantity="other">共 %d 项</item>
     </plurals>
