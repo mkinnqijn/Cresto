@@ -16,28 +16,36 @@ class TodayTodoWidgetDataTest {
         creationDateTime = today.atStartOfDay(), startTime = time?.let(LocalTime::parse)
     )
 
-    @Test fun `only today's incomplete non-deleted todos are included`() {
+    @Test fun `only dated incomplete non-deleted todos from today onward are included`() {
         val input = listOf(todo(1), todo(2).copy(isCompleted = true),
             todo(3).copy(deletedAt = today.atStartOfDay()),
             todo(4).copy(dueDate = today.minusDays(1)),
             todo(5).copy(dueDate = today.plusDays(1)), todo(6).copy(dueDate = null))
-        assertEquals(listOf(1), todayWidgetTodos(input, today).map { it.id })
+        assertEquals(
+            listOf(1, 5),
+            upcomingWidgetSections(input, today).flatMap { section -> section.todos }.map { it.id }
+        )
     }
 
-    @Test fun `start time wins over pins creation order and end time with untimed last`() {
+    @Test fun `date then start time wins over pins and untimed items come last that day`() {
         val input = listOf(todo(1).copy(isPinned = true),
             todo(2, "18:30").copy(endTime = LocalTime.of(20, 30)),
             todo(3, "15:30").copy(isPinned = true), todo(4, "09:00"),
             todo(5).copy(endTime = LocalTime.of(8, 0)), todo(6, "23:59"))
-        assertEquals(listOf(4, 3, 2, 6, 1, 5), todayWidgetTodos(input, today).map { it.id })
+        assertEquals(
+            listOf(4, 3, 2, 6, 1, 5),
+            upcomingWidgetSections(input, today, limit = 10)
+                .flatMap { section -> section.todos }
+                .map { it.id }
+        )
     }
 
     @Test fun `ties use creation time then id even if Room emits a different order`() {
         val input = listOf(todo(3, "09:00"), todo(2, "09:00"),
             todo(1, "09:00").copy(creationDateTime = today.atTime(1, 0)))
         val expected = listOf(2, 3, 1)
-        assertEquals(expected, todayWidgetTodos(input, today).map { it.id })
-        assertEquals(expected, todayWidgetTodos(input.reversed(), today).map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input, today, limit = 10).single().todos.map { it.id })
+        assertEquals(expected, upcomingWidgetSections(input.reversed(), today, limit = 10).single().todos.map { it.id })
     }
 
     @Test fun `time formatting hides untimed and uses only range start`() {
@@ -47,9 +55,37 @@ class TodayTodoWidgetDataTest {
         assertEquals("", todo(4).copy(endTime = LocalTime.NOON).widgetTime())
     }
 
-    @Test fun `crossing midnight changes the date filter`() {
+    @Test fun `two visible items can span dates and sections keep each dates full count`() {
+        val input = listOf(
+            todo(1),
+            todo(2).copy(dueDate = today.plusDays(1)),
+            todo(3).copy(dueDate = today.plusDays(1)),
+            todo(4).copy(dueDate = today.plusDays(2))
+        )
+        val sections = upcomingWidgetSections(input, today)
+        assertEquals(listOf(today, today.plusDays(1)), sections.map { it.date })
+        assertEquals(listOf(1, 2), sections.map { it.totalCount })
+        assertEquals(listOf(1, 2), sections.flatMap { it.todos }.map { it.id })
+    }
+
+    @Test fun `two item limit does not reduce a same-day total count`() {
+        val sections = upcomingWidgetSections(listOf(todo(1), todo(2), todo(3)), today)
+        assertEquals(3, sections.single().totalCount)
+        assertEquals(listOf(1, 2), sections.single().todos.map { it.id })
+    }
+
+    @Test fun `crossing midnight drops the previous date`() {
         val input = listOf(todo(1), todo(2).copy(dueDate = today.plusDays(1)))
-        assertEquals(listOf(2), todayWidgetTodos(input, today.plusDays(1)).map { it.id })
+        assertEquals(
+            listOf(2),
+            upcomingWidgetSections(input, today.plusDays(1)).flatMap { it.todos }.map { it.id }
+        )
+    }
+
+    @Test fun `date labels distinguish today tomorrow and later dates`() {
+        assertEquals("Today 10/13", widgetDateLabel(today, today, "Today", "Tomorrow"))
+        assertEquals("Tomorrow 10/14", widgetDateLabel(today.plusDays(1), today, "Today", "Tomorrow"))
+        assertEquals("10/15", widgetDateLabel(today.plusDays(2), today, "Today", "Tomorrow"))
     }
 
     @Test fun `midnight is local next day including daylight saving changes`() {
