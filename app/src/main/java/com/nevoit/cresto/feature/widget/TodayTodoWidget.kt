@@ -155,8 +155,8 @@ private fun rememberTodayTodoWidgetColors(context: Context): TodayTodoWidgetColo
                 night = darkColors.content.copy(alpha = 0.12f)
             ),
             overdue = DayNightColorProvider(
-                day = lightColors.error.copy(alpha = 0.68f),
-                night = darkColors.error.copy(alpha = 0.72f)
+                day = lightColors.error.copy(alpha = 0.48f),
+                night = darkColors.error.copy(alpha = 0.54f)
             ),
             overdueDivider = DayNightColorProvider(
                 day = lightColors.error.copy(alpha = 0.26f),
@@ -333,7 +333,12 @@ private fun WidgetDateHeader(
             modifier = GlanceModifier.defaultWeight(),
             style = TextStyle(
                 color = if (section.isOverdue) colors.overdue else colors.secondary,
-                fontSize = if (expanded) 14.sp else 12.sp,
+                fontSize = when {
+                    section.isOverdue && expanded -> 16.sp
+                    section.isOverdue -> 14.sp
+                    expanded -> 14.sp
+                    else -> 12.sp
+                },
                 fontWeight = FontWeight.Medium
             ),
             maxLines = 1
@@ -355,7 +360,7 @@ private fun WidgetDivider(
     Box(
         modifier = GlanceModifier.fillMaxWidth()
             .padding(start = startPadding)
-            .height(1.dp)
+            .height(if (overdueBoundary) 2.dp else 1.dp)
             .background(if (overdueBoundary) colors.overdueDivider else colors.divider)
     ) {}
 }
