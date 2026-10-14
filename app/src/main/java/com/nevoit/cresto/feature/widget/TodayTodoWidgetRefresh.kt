@@ -47,10 +47,10 @@ object TodayTodoWidgetRefresh {
 
     fun request(context: Context) {
         if (!hasWidgets(context)) return
-        // Append instead of KEEP: a mutation during an active refresh must not be dropped.
+        // Rendering reads the latest database state, so coalesce rapid edits into one refresh.
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>().build()
         )
     }

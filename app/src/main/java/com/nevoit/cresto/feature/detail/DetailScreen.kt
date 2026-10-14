@@ -104,6 +104,7 @@ import com.nevoit.cresto.feature.group.GroupBottomSheet
 import com.nevoit.cresto.feature.main.rememberFlagMenuItems
 import com.nevoit.cresto.feature.settings.util.SettingsViewModel
 import com.nevoit.cresto.feature.sharetodo.TodoShareSheet
+import com.nevoit.cresto.feature.widget.TodayTodoWidgetRefresh
 import com.nevoit.cresto.theme.AppButtonColors
 import com.nevoit.cresto.theme.AppColors
 import com.nevoit.cresto.theme.AppSpecs
@@ -487,7 +488,11 @@ fun DetailScreen(
     }
     LaunchedEffect(title) {
         itemWithSubTodos?.let {
-            viewModel.update(it.todoItem.copy(title = title))
+            if (it.todoItem.title != title) {
+                viewModel.update(it.todoItem.copy(title = title)).join()
+                delay(120.milliseconds)
+                TodayTodoWidgetRefresh.request(context)
+            }
         }
     }
     LaunchedEffect(notesText) {

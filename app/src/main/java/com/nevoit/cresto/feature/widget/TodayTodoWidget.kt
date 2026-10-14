@@ -378,23 +378,23 @@ private fun TodayTodoRow(
     val hasLocation = location.isNotEmpty()
     val titleMaxLines = 4
     val metadataMaxLines = 3
-    Row(
-        modifier = GlanceModifier.fillMaxWidth()
-            .clickable(actionStartActivity<DetailActivity>(actionParametersOf(WidgetTodoIdKey to todo.id)))
-            .padding(vertical = if (expanded) 8.dp else if (spacious) 6.dp else 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val completionTouchTarget = when {
+        expanded -> 46.dp
+        spacious -> 38.dp
+        else -> 34.dp
+    }
+    Box(
+        modifier = GlanceModifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
     ) {
+        Row(
+            modifier = GlanceModifier.fillMaxWidth()
+                .clickable(actionStartActivity<DetailActivity>(actionParametersOf(WidgetTodoIdKey to todo.id)))
+                .padding(vertical = if (expanded) 8.dp else if (spacious) 6.dp else 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Box(
-            modifier = GlanceModifier
-                .size(44.dp)
-                .clickable(
-                    actionRunCallback<ToggleWidgetTodoCompletionAction>(
-                        actionParametersOf(
-                            WidgetTodoIdKey to todo.id,
-                            WidgetTodoCompletedKey to !todo.isCompleted
-                        )
-                    )
-                ),
+            modifier = GlanceModifier.size(if (expanded) 30.dp else 26.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(
@@ -487,6 +487,19 @@ private fun TodayTodoRow(
                 )
             }
         }
+        }
+        Box(
+            modifier = GlanceModifier
+                .size(completionTouchTarget)
+                .clickable(
+                    actionRunCallback<ToggleWidgetTodoCompletionAction>(
+                        actionParametersOf(
+                            WidgetTodoIdKey to todo.id,
+                            WidgetTodoCompletedKey to !todo.isCompleted
+                        )
+                    )
+                )
+        ) {}
     }
 }
 
@@ -522,7 +535,7 @@ private fun estimateWidgetTodoRowHeight(
     spacious: Boolean
 ): Float {
     val horizontalPadding = if (expanded) 40f else 32f
-    val checkboxAndSpacing = if (expanded) 55f else 53f
+    val checkboxAndSpacing = if (expanded) 41f else 35f
     val metadataWidth = when {
         expanded -> 156f
         spacious -> 134f
@@ -562,7 +575,7 @@ private fun estimateWidgetTodoRowHeight(
         (if (todo.startTime != null) metadataLineHeight else 0f) +
             (if (todo.startTime != null && locationLines > 0) 2f else 0f) +
             locationLines * metadataLineHeight
-    val controlHeight = 44f
+    val controlHeight = if (expanded) 30f else 26f
     val verticalPadding = when {
         expanded -> 16f
         spacious -> 12f
