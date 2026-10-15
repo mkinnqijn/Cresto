@@ -128,8 +128,14 @@ class TodayTodoWidgetDataTest {
             today
         )
 
-        val short = fitWidgetSections(sections, 100f, rowHeightDp = { 40f }, sectionHeaderHeightDp = 20f)
-        val tall = fitWidgetSections(sections, 200f, rowHeightDp = { 40f }, sectionHeaderHeightDp = 20f)
+        val short = fitWidgetSections(
+            sections, 101f, fullRowHeightDp = { 40f }, compactRowHeightDp = { 40f },
+            sectionHeaderHeightDp = 20f
+        )
+        val tall = fitWidgetSections(
+            sections, 205f, fullRowHeightDp = { 40f }, compactRowHeightDp = { 40f },
+            sectionHeaderHeightDp = 20f
+        )
 
         assertEquals(listOf(1, 2), short.flatMap { it.todos }.map { it.id })
         assertEquals(listOf(1, 2, 3, 4), tall.flatMap { it.todos }.map { it.id })
@@ -142,11 +148,60 @@ class TodayTodoWidgetDataTest {
         val visible = fitWidgetSections(
             sections = sections,
             availableHeightDp = 135f,
-            rowHeightDp = { todo -> if (todo.id == 2) 70f else 40f },
+            fullRowHeightDp = { todo -> if (todo.id == 2) 70f else 40f },
+            compactRowHeightDp = { todo -> if (todo.id == 2) 70f else 40f },
             sectionHeaderHeightDp = 20f
         )
 
         assertEquals(listOf(1, 2), visible.single().todos.map { it.id })
+    }
+
+    @Test fun `height fitting uses compact final row instead of leaving usable space blank`() {
+        val sections = upcomingWidgetSections(listOf(todo(1), todo(2)), today)
+        val visible = fitWidgetSections(
+            sections = sections,
+            availableHeightDp = 121f,
+            fullRowHeightDp = { todo -> if (todo.id == 2) 90f else 60f },
+            compactRowHeightDp = { 40f },
+            sectionHeaderHeightDp = 20f
+        )
+
+        assertEquals(listOf(1, 2), visible.single().todos.map { it.id })
+        assertEquals(setOf(2), visible.single().compactTodoIds)
+    }
+
+    @Test fun `height fitting includes next date when its header and compact first row fit`() {
+        val sections = upcomingWidgetSections(
+            listOf(todo(1), todo(2).copy(dueDate = today.plusDays(1))),
+            today
+        )
+        val visible = fitWidgetSections(
+            sections = sections,
+            availableHeightDp = 113f,
+            fullRowHeightDp = { todo -> if (todo.id == 2) 80f else 40f },
+            compactRowHeightDp = { 30f },
+            sectionHeaderHeightDp = 20f
+        )
+
+        assertEquals(listOf(1, 2), visible.flatMap { it.todos }.map { it.id })
+        assertEquals(setOf(2), visible.last().compactTodoIds)
+    }
+
+    @Test fun `height fitting never leaves a date header without a minimum row`() {
+        val sections = upcomingWidgetSections(
+            listOf(todo(1), todo(2).copy(dueDate = today.plusDays(1))),
+            today
+        )
+        val visible = fitWidgetSections(
+            sections = sections,
+            availableHeightDp = 112f,
+            fullRowHeightDp = { todo -> if (todo.id == 2) 80f else 40f },
+            compactRowHeightDp = { 30f },
+            sectionHeaderHeightDp = 20f
+        )
+
+        assertEquals(listOf(1), visible.flatMap { it.todos }.map { it.id })
+        assertEquals(1, visible.size)
     }
 
     @Test fun `crossing midnight drops the previous date`() {

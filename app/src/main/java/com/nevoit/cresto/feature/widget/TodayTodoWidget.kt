@@ -198,12 +198,22 @@ private fun TodayTodoWidgetContent(
             spacious -> 65.dp
             else -> 59.dp
         }).value,
-        rowHeightDp = { todo ->
+        fullRowHeightDp = { todo ->
             estimateWidgetTodoRowHeight(
                 todo = todo,
                 widgetWidthDp = widgetWidth.value,
                 expanded = expanded,
-                spacious = spacious
+                spacious = spacious,
+                compact = false
+            )
+        },
+        compactRowHeightDp = { todo ->
+            estimateWidgetTodoRowHeight(
+                todo = todo,
+                widgetWidthDp = widgetWidth.value,
+                expanded = expanded,
+                spacious = spacious,
+                compact = true
             )
         },
         sectionHeaderHeightDp = when {
@@ -287,7 +297,8 @@ private fun TodayTodoWidgetContent(
                                             todo = todo,
                                             colors = colors,
                                             spacious = spacious,
-                                            expanded = expanded
+                                            expanded = expanded,
+                                            compact = todo.id in section.compactTodoIds
                                         )
                                     }
                                 }
@@ -371,13 +382,14 @@ private fun TodayTodoRow(
     todo: TodoItem,
     colors: TodayTodoWidgetColors,
     spacious: Boolean,
-    expanded: Boolean
+    expanded: Boolean,
+    compact: Boolean
 ) {
     val location = todo.location.trim()
     val hasTime = todo.startTime != null
     val hasLocation = location.isNotEmpty()
-    val titleMaxLines = 4
-    val metadataMaxLines = 3
+    val titleMaxLines = if (compact) 1 else 4
+    val metadataMaxLines = if (compact) 1 else 3
     val completionTouchTarget = when {
         expanded -> 46.dp
         spacious -> 38.dp
@@ -532,7 +544,8 @@ private fun estimateWidgetTodoRowHeight(
     todo: TodoItem,
     widgetWidthDp: Float,
     expanded: Boolean,
-    spacious: Boolean
+    spacious: Boolean,
+    compact: Boolean
 ): Float {
     val horizontalPadding = if (expanded) 40f else 32f
     val checkboxAndSpacing = if (expanded) 41f else 35f
@@ -550,7 +563,7 @@ private fun estimateWidgetTodoRowHeight(
     val titleWidth = (widgetWidthDp - horizontalPadding - checkboxAndSpacing -
         hideButtonWidth - if (hasMetadata) metadataWidth else 0f).coerceAtLeast(56f)
     val titleFontSize = if (expanded) 16f else 14f
-    val titleMaxLines = 4
+    val titleMaxLines = if (compact) 1 else 4
     val titleLines = estimateTextLines(todo.title, titleWidth, titleFontSize, titleMaxLines)
     val titleHeight = titleLines * if (expanded) 20f else 18f
 
@@ -567,7 +580,7 @@ private fun estimateWidgetTodoRowHeight(
             text = todo.location.trim(),
             availableWidthDp = metadataTextWidth,
             fontSizeSp = metadataFontSize,
-            maxLines = 3
+            maxLines = if (compact) 1 else 3
         )
     }
     val metadataLineHeight = if (expanded) 18f else 16f
@@ -581,7 +594,7 @@ private fun estimateWidgetTodoRowHeight(
         spacious -> 12f
         else -> 8f
     }
-    return maxOf(titleHeight, metadataHeight, controlHeight) + verticalPadding + 1f
+    return maxOf(titleHeight, metadataHeight, controlHeight) + verticalPadding
 }
 
 private fun estimateTextLines(

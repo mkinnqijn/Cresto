@@ -12,7 +12,8 @@ internal data class WidgetTodoSection(
     val date: LocalDate,
     val totalCount: Int,
     val todos: List<TodoItem>,
-    val isOverdue: Boolean = false
+    val isOverdue: Boolean = false,
+    val compactTodoIds: Set<Int> = emptySet()
 )
 
 internal const val WIDGET_COMPLETION_UNDO_MINUTES = 3L
@@ -156,33 +157,63 @@ internal fun nextWidgetCompletionExpiryDelayMillis(
     .filter { it > 0L }
     .minOrNull()
 
-/** Keeps only complete date sections and rows that fit the widget's measured content height. */
+/**
+ * Fills the measured widget height with complete rows. The final visible row may use the compact
+ * layout when the full row does not fit, but a section header is never emitted without a row.
+ */
 internal fun fitWidgetSections(
     sections: List<WidgetTodoSection>,
     availableHeightDp: Float,
-    rowHeightDp: (TodoItem) -> Float,
-    sectionHeaderHeightDp: Float
+    fullRowHeightDp: (TodoItem) -> Float,
+    compactRowHeightDp: (TodoItem) -> Float,
+    sectionHeaderHeightDp: Float,
+    rowDividerHeightDp: Float = 1f,
+    sectionSpacingHeightDp: (WidgetTodoSection, WidgetTodoSection) -> Float = { previous, current ->
+        if (previous.isOverdue || current.isOverdue) 4f else 3f
+    }
 ): List<WidgetTodoSection> {
     var remainingHeight = availableHeightDp.coerceAtLeast(0f)
     val visibleSections = mutableListOf<WidgetTodoSection>()
+    var stopAfterCurrentSection = false
 
     for (section in sections) {
-        val firstRowHeight = section.todos.firstOrNull()?.let(rowHeightDp) ?: break
-        if (remainingHeight < sectionHeaderHeightDp + firstRowHeight) break
+        val firstTodo = section.todos.firstOrNull() ?: continue
+        val previousSection = visibleSections.lastOrNull()
+        val sectionSpacing = previousSection?.let { sectionSpacingHeightDp(it, section) } ?: 0f
+        val sectionChromeHeight = sectionSpacing + sectionHeaderHeightDp
+        val firstCompactHeight = compactRowHeightDp(firstTodo)
+        if (remainingHeight < sectionChromeHeight + firstCompactHeight) break
 
-        remainingHeight -= sectionHeaderHeightDp
-        val visibleTodos = section.todos.takeWhile { todo ->
-            val height = rowHeightDp(todo)
-            if (remainingHeight < height) {
-                false
-            } else {
-                remainingHeight -= height
-                true
+        var sectionRemainingHeight = remainingHeight - sectionChromeHeight
+        val visibleTodos = mutableListOf<TodoItem>()
+        val compactTodoIds = mutableSetOf<Int>()
+
+        for (todo in section.todos) {
+            val dividerHeight = if (visibleTodos.isEmpty()) 0f else rowDividerHeightDp
+            val fullHeight = dividerHeight + fullRowHeightDp(todo)
+            if (sectionRemainingHeight >= fullHeight) {
+                sectionRemainingHeight -= fullHeight
+                visibleTodos += todo
+                continue
             }
+
+            val compactHeight = dividerHeight + compactRowHeightDp(todo)
+            if (sectionRemainingHeight >= compactHeight) {
+                sectionRemainingHeight -= compactHeight
+                visibleTodos += todo
+                compactTodoIds += todo.id
+            }
+            stopAfterCurrentSection = true
+            break
         }
+
         if (visibleTodos.isEmpty()) break
-        visibleSections += section.copy(todos = visibleTodos)
-        if (visibleTodos.size < section.todos.size) break
+        remainingHeight = sectionRemainingHeight
+        visibleSections += section.copy(
+            todos = visibleTodos,
+            compactTodoIds = compactTodoIds
+        )
+        if (stopAfterCurrentSection || visibleTodos.size < section.todos.size) break
     }
 
     return visibleSections
