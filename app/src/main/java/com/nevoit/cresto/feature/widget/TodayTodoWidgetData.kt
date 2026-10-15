@@ -16,6 +16,25 @@ internal data class WidgetTodoSection(
     val compactTodoIds: Set<Int> = emptySet()
 )
 
+internal enum class WidgetFirstRowFit {
+    FULL,
+    COMPACT,
+    HIDDEN
+}
+
+internal data class WidgetSectionFitTrace(
+    val date: LocalDate,
+    val isOverdue: Boolean,
+    val availableHeightDp: Float,
+    val consumedHeightDp: Float,
+    val remainingHeightDp: Float,
+    val sectionSpacingHeightDp: Float,
+    val sectionHeaderHeightDp: Float,
+    val firstFullRowHeightDp: Float,
+    val firstCompactRowHeightDp: Float,
+    val firstRowFit: WidgetFirstRowFit
+)
+
 internal const val WIDGET_COMPLETION_UNDO_MINUTES = 3L
 
 /** Widget ordering is chronological, independent of the app's user-selected sort or pins. */
@@ -170,9 +189,11 @@ internal fun fitWidgetSections(
     rowDividerHeightDp: Float = 1f,
     sectionSpacingHeightDp: (WidgetTodoSection, WidgetTodoSection) -> Float = { previous, current ->
         if (previous.isOverdue || current.isOverdue) 4f else 3f
-    }
+    },
+    onSectionDecision: (WidgetSectionFitTrace) -> Unit = {}
 ): List<WidgetTodoSection> {
-    var remainingHeight = availableHeightDp.coerceAtLeast(0f)
+    val availableHeight = availableHeightDp.coerceAtLeast(0f)
+    var remainingHeight = availableHeight
     val visibleSections = mutableListOf<WidgetTodoSection>()
     var stopAfterCurrentSection = false
 
@@ -181,8 +202,28 @@ internal fun fitWidgetSections(
         val previousSection = visibleSections.lastOrNull()
         val sectionSpacing = previousSection?.let { sectionSpacingHeightDp(it, section) } ?: 0f
         val sectionChromeHeight = sectionSpacing + sectionHeaderHeightDp
+        val firstFullHeight = fullRowHeightDp(firstTodo)
         val firstCompactHeight = compactRowHeightDp(firstTodo)
-        if (remainingHeight < sectionChromeHeight + firstCompactHeight) break
+        val firstRowFit = when {
+            remainingHeight >= sectionChromeHeight + firstFullHeight -> WidgetFirstRowFit.FULL
+            remainingHeight >= sectionChromeHeight + firstCompactHeight -> WidgetFirstRowFit.COMPACT
+            else -> WidgetFirstRowFit.HIDDEN
+        }
+        onSectionDecision(
+            WidgetSectionFitTrace(
+                date = section.date,
+                isOverdue = section.isOverdue,
+                availableHeightDp = availableHeight,
+                consumedHeightDp = availableHeight - remainingHeight,
+                remainingHeightDp = remainingHeight,
+                sectionSpacingHeightDp = sectionSpacing,
+                sectionHeaderHeightDp = sectionHeaderHeightDp,
+                firstFullRowHeightDp = firstFullHeight,
+                firstCompactRowHeightDp = firstCompactHeight,
+                firstRowFit = firstRowFit
+            )
+        )
+        if (firstRowFit == WidgetFirstRowFit.HIDDEN) break
 
         var sectionRemainingHeight = remainingHeight - sectionChromeHeight
         val visibleTodos = mutableListOf<TodoItem>()

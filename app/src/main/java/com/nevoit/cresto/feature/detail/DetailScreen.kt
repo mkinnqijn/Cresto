@@ -491,7 +491,7 @@ fun DetailScreen(
             if (it.todoItem.title != title) {
                 viewModel.update(it.todoItem.copy(title = title)).join()
                 delay(120.milliseconds)
-                TodayTodoWidgetRefresh.request(context)
+                TodayTodoWidgetRefresh.request(context, "detail_title_edited")
             }
         }
     }

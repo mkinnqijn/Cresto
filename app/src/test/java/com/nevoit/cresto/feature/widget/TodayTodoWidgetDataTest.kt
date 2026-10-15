@@ -1,5 +1,6 @@
 package com.nevoit.cresto.feature.widget
 
+import android.content.res.Configuration
 import com.nevoit.cresto.data.todo.TodoItem
 import java.time.Duration
 import java.time.LocalDate
@@ -202,6 +203,47 @@ class TodayTodoWidgetDataTest {
 
         assertEquals(listOf(1), visible.flatMap { it.todos }.map { it.id })
         assertEquals(1, visible.size)
+    }
+
+    @Test fun `same height and data always make the same later date decision`() {
+        val laterDate = today.plusDays(5)
+        val sections = upcomingWidgetSections(
+            listOf(todo(1), todo(2).copy(dueDate = laterDate)),
+            today
+        )
+
+        val runs = List(10) {
+            val traces = mutableListOf<WidgetSectionFitTrace>()
+            val visible = fitWidgetSections(
+                sections = sections,
+                availableHeightDp = 113f,
+                fullRowHeightDp = { todo -> if (todo.id == 2) 80f else 40f },
+                compactRowHeightDp = { 30f },
+                sectionHeaderHeightDp = 20f,
+                onSectionDecision = traces::add
+            )
+            visible to traces
+        }
+
+        assertEquals(1, runs.distinct().size)
+        val (visible, traces) = runs.first()
+        assertEquals(listOf(1, 2), visible.flatMap { it.todos }.map { it.id })
+        assertEquals(WidgetFirstRowFit.COMPACT, traces.single { it.date == laterDate }.firstRowFit)
+        assertEquals(53f, traces.single { it.date == laterDate }.remainingHeightDp)
+    }
+
+    @Test fun `launcher options select a stable size for each orientation`() {
+        val options = WidgetLauncherOptions(
+            minWidthDp = 250,
+            maxWidthDp = 430,
+            minHeightDp = 140,
+            maxHeightDp = 510
+        )
+
+        assertEquals(250, options.widthForOrientation(Configuration.ORIENTATION_PORTRAIT))
+        assertEquals(510, options.heightForOrientation(Configuration.ORIENTATION_PORTRAIT))
+        assertEquals(430, options.widthForOrientation(Configuration.ORIENTATION_LANDSCAPE))
+        assertEquals(140, options.heightForOrientation(Configuration.ORIENTATION_LANDSCAPE))
     }
 
     @Test fun `crossing midnight drops the previous date`() {

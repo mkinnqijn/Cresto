@@ -13,7 +13,26 @@ class TodayTodoWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         TodayTodoWidgetRefresh.scheduleMidnight(context)
-        TodayTodoWidgetRefresh.request(context)
+        TodayTodoWidgetRefresh.request(context, "receiver_enabled")
+    }
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        appWidgetIds.forEach { appWidgetId ->
+            if (TodayTodoWidgetLayoutState.readOptions(context, appWidgetId) == null) {
+                TodayTodoWidgetLayoutState.recordCurrentOptions(
+                    context,
+                    appWidgetId,
+                    "receiver_update_initial_size"
+                )
+            } else {
+                TodayTodoWidgetLayoutState.recordTrigger(context, appWidgetId, "receiver_update")
+            }
+        }
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
     }
 
     override fun onDisabled(context: Context) {
@@ -27,8 +46,19 @@ class TodayTodoWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetId: Int,
         newOptions: Bundle
     ) {
+        TodayTodoWidgetLayoutState.recordOptions(
+            context,
+            appWidgetId,
+            newOptions,
+            "receiver_options_changed"
+        )
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
-        TodayTodoWidgetRefresh.request(context)
+        TodayTodoWidgetRefresh.request(context, "receiver_options_changed")
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { TodayTodoWidgetLayoutState.remove(context, it) }
+        super.onDeleted(context, appWidgetIds)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -39,7 +69,7 @@ class TodayTodoWidgetReceiver : GlanceAppWidgetReceiver() {
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
-                TodayTodoWidgetRefresh.request(context)
+                TodayTodoWidgetRefresh.request(context, "receiver_${intent.action}")
                 TodayTodoWidgetRefresh.scheduleMidnight(context)
             }
             else -> super.onReceive(context, intent)

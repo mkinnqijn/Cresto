@@ -7,12 +7,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.glance.appwidget.updateAll
-import androidx.lifecycle.lifecycleScope
-import com.nevoit.cresto.feature.widget.TodayTodoWidget
+import com.nevoit.cresto.feature.widget.TodayTodoWidgetRefresh
 import com.nevoit.cresto.theme.GlasenseTheme
 import com.nevoit.glasense.core.utility.clearBackground
-import kotlinx.coroutines.launch
 
 enum class SettingsDestination(val value: String) {
     SETTINGS("settings"),
@@ -69,8 +66,6 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        lifecycleScope.launch {
-            TodayTodoWidget.updateAll(applicationContext)
-        }
+        TodayTodoWidgetRefresh.request(applicationContext, "settings_stopped")
     }
 }

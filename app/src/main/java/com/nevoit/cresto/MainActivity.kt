@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        TodayTodoWidgetRefresh.request(applicationContext)
+        TodayTodoWidgetRefresh.request(applicationContext, "main_activity_stopped")
     }
 
     private fun requestNotificationPermissionIfNeeded() {

@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.AppWidgetId
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.room.InvalidationTracker
 import androidx.work.CoroutineWorker
@@ -14,6 +15,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.nevoit.cresto.data.todo.TodoDatabase
 import java.time.ZonedDateTime
 import java.time.LocalDate
@@ -30,28 +32,31 @@ object TodayTodoWidgetRefresh {
     private const val WORK_NAME = "today-todo-widget-refresh"
     private const val COMPLETION_EXPIRY_WORK_NAME = "today-todo-widget-completion-expiry"
     private const val OVERDUE_TRANSITION_WORK_NAME = "today-todo-widget-overdue-transition"
+    internal const val INPUT_TRIGGER_SOURCE = "trigger_source"
 
     fun observe(context: Context, database: TodoDatabase) {
         val appContext = context.applicationContext
         database.invalidationTracker.addObserver(object : InvalidationTracker.Observer("todo_items") {
             override fun onInvalidated(tables: Set<String>) {
-                request(appContext)
+                request(appContext, "database_invalidated")
             }
         })
-        request(appContext)
+        request(appContext, "application_started")
         scheduleMidnight(appContext)
     }
 
     fun hasWidgets(context: Context): Boolean = AppWidgetManager.getInstance(context)
         .getAppWidgetIds(ComponentName(context, TodayTodoWidgetReceiver::class.java)).isNotEmpty()
 
-    fun request(context: Context) {
+    fun request(context: Context, triggerSource: String = "unspecified") {
         if (!hasWidgets(context)) return
         // Rendering reads the latest database state, so coalesce rapid edits into one refresh.
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
             ExistingWorkPolicy.REPLACE,
-            OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>().build()
+            OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>()
+                .setInputData(workDataOf(INPUT_TRIGGER_SOURCE to triggerSource))
+                .build()
         )
     }
 
@@ -62,6 +67,7 @@ object TodayTodoWidgetRefresh {
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>()
                 .setInitialDelay(delayMillis + 250L, TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf(INPUT_TRIGGER_SOURCE to "completion_expired"))
                 .build()
         )
     }
@@ -77,6 +83,7 @@ object TodayTodoWidgetRefresh {
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<TodayTodoWidgetRefreshWorker>()
                 .setInitialDelay(delayMillis + 250L, TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf(INPUT_TRIGGER_SOURCE to "overdue_transition"))
                 .build()
         )
     }
@@ -111,9 +118,18 @@ object TodayTodoWidgetRefresh {
 class TodayTodoWidgetRefreshWorker(context: Context, parameters: WorkerParameters) :
     CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = try {
+        val triggerSource = inputData.getString(TodayTodoWidgetRefresh.INPUT_TRIGGER_SOURCE)
+            ?: "worker_unspecified"
         val ids = GlanceAppWidgetManager(applicationContext)
             .getGlanceIds(TodayTodoWidget::class.java)
         ids.forEach { id ->
+            (id as? AppWidgetId)?.appWidgetId?.let { appWidgetId ->
+                TodayTodoWidgetLayoutState.recordTrigger(
+                    applicationContext,
+                    appWidgetId,
+                    triggerSource
+                )
+            }
             updateAppWidgetState(applicationContext, id) { state ->
                 state[WidgetRefreshKey] = (state[WidgetRefreshKey] ?: 0L) + 1L
             }

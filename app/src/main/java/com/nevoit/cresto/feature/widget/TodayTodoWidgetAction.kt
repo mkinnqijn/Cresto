@@ -3,6 +3,7 @@ package com.nevoit.cresto.feature.widget
 import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
+import androidx.glance.appwidget.AppWidgetId
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.state.updateAppWidgetState
 import com.nevoit.cresto.data.todo.TodoRepository
@@ -27,8 +28,8 @@ class ToggleWidgetTodoCompletionAction : ActionCallback {
         if (!shouldComplete && todo.isCompleted &&
             todo.completedDateTime?.isAfter(now.minusMinutes(WIDGET_COMPLETION_UNDO_MINUTES)) != true
         ) {
+            glanceId.recordWidgetTrigger(context, "completion_undo_expired")
             TodayTodoWidget.update(context, glanceId)
-            TodayTodoWidgetRefresh.request(context)
             return
         }
 
@@ -48,8 +49,8 @@ class ToggleWidgetTodoCompletionAction : ActionCallback {
             }
         }
 
+        glanceId.recordWidgetTrigger(context, "completion_toggled")
         TodayTodoWidget.update(context, glanceId)
-        TodayTodoWidgetRefresh.request(context)
     }
 }
 
@@ -64,6 +65,13 @@ class HideCompletedTodoFromWidgetAction : ActionCallback {
             state[WidgetHiddenCompletedKey] =
                 state[WidgetHiddenCompletedKey].orEmpty() + completionToken
         }
+        glanceId.recordWidgetTrigger(context, "completed_hidden")
         TodayTodoWidget.update(context, glanceId)
+    }
+}
+
+private fun GlanceId.recordWidgetTrigger(context: Context, source: String) {
+    (this as? AppWidgetId)?.appWidgetId?.let { appWidgetId ->
+        TodayTodoWidgetLayoutState.recordTrigger(context, appWidgetId, source)
     }
 }

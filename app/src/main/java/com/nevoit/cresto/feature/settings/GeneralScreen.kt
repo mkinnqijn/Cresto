@@ -208,7 +208,7 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
                 isSelected = { widgetOverdueLimit == count },
                 onClick = {
                     settingsViewModel.onWidgetOverdueLimitChanged(count)
-                    TodayTodoWidgetRefresh.request(context)
+                    TodayTodoWidgetRefresh.request(context, "overdue_limit_changed")
                 }
             )
         }
@@ -308,7 +308,7 @@ fun GeneralScreen(settingsViewModel: SettingsViewModel = viewModel()) {
                     checked = isWidgetShowOverdueEnabled,
                     onCheckedChange = { enabled ->
                         settingsViewModel.onWidgetShowOverdueChanged(enabled)
-                        TodayTodoWidgetRefresh.request(context)
+                        TodayTodoWidgetRefresh.request(context, "overdue_visibility_changed")
                     }
                 ) {
                     Text(stringResource(R.string.widget_show_overdue_todos))

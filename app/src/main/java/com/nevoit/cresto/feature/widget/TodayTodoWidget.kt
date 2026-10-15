@@ -3,6 +3,7 @@ package com.nevoit.cresto.feature.widget
 import android.content.Context
 import android.content.Intent
 import android.appwidget.AppWidgetManager
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.nevoit.cresto.MainActivity
 import com.nevoit.cresto.R
+import com.nevoit.cresto.BuildConfig
 import com.nevoit.cresto.data.todo.EXTRA_TODO_ID
 import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.TodoRepository
@@ -52,6 +54,7 @@ internal val WidgetHiddenCompletedKey = stringSetPreferencesKey("widget_hidden_c
 internal val WidgetTodoIdKey = ActionParameters.Key<Int>(EXTRA_TODO_ID)
 internal val WidgetTodoCompletedKey = ActionParameters.Key<Boolean>("widget_todo_completed")
 internal val WidgetTodoCompletionTokenKey = ActionParameters.Key<String>("widget_todo_completion_token")
+private const val WIDGET_LAYOUT_LOG_TAG = "CrestoWidgetLayout"
 
 private data class TodayTodoWidgetColors(
     val background: ColorProvider,
@@ -72,14 +75,21 @@ object TodayTodoWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = GlobalContext.get().get<TodoRepository>()
         val initialTodos = repository.allTodos.first()
-        val optionHeight = (id as? AppWidgetId)?.let { appWidgetId ->
-            val options = AppWidgetManager.getInstance(context)
-                .getAppWidgetOptions(appWidgetId.appWidgetId)
-            maxOf(
-                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT),
-                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-            ).takeIf { it > 0 }?.dp
+        val appWidgetId = (id as? AppWidgetId)?.appWidgetId
+        val liveOptions = appWidgetId?.let { widgetId ->
+            AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId).toLauncherOptions()
         }
+        val stableOptions = appWidgetId?.let { widgetId ->
+            TodayTodoWidgetLayoutState.readOptions(context, widgetId) ?: liveOptions?.also {
+                TodayTodoWidgetLayoutState.recordCurrentOptions(
+                    context = context,
+                    appWidgetId = widgetId,
+                    triggerSource = "provide_glance_fallback"
+                )
+            }
+        }
+        val triggerSource = appWidgetId?.let { TodayTodoWidgetLayoutState.readTrigger(context, it) }
+            ?: "non_app_widget_id"
         provideContent {
             // The revision makes the date window advance after midnight or a time-zone change.
             val revision = currentState(WidgetRefreshKey)
@@ -110,7 +120,10 @@ object TodayTodoWidget : GlanceAppWidget() {
                 context = context,
                 today = today,
                 sections = sections,
-                optionHeight = optionHeight
+                appWidgetId = appWidgetId,
+                triggerSource = triggerSource,
+                liveOptions = liveOptions,
+                stableOptions = stableOptions
             )
         }
     }
@@ -183,21 +196,40 @@ private fun TodayTodoWidgetContent(
     context: Context,
     today: LocalDate,
     sections: List<WidgetTodoSection>,
-    optionHeight: Dp?
+    appWidgetId: Int?,
+    triggerSource: String,
+    liveOptions: WidgetLauncherOptions?,
+    stableOptions: WidgetLauncherOptions?
 ) {
     val colors = rememberTodayTodoWidgetColors(context)
     val localHeight = LocalSize.current.height
-    val widgetWidth = LocalSize.current.width
-    val widgetHeight = optionHeight?.takeIf { it > localHeight } ?: localHeight
+    val localWidth = LocalSize.current.width
+    val orientation = context.resources.configuration.orientation
+    val widgetHeight = stableOptions?.heightForOrientation(orientation)
+        ?.takeIf { it > 0 }?.dp ?: localHeight
+    val widgetWidth = stableOptions?.widthForOrientation(orientation)
+        ?.takeIf { it > 0 }?.dp ?: localWidth
     val expanded = widgetHeight >= 320.dp
     val spacious = widgetHeight >= 180.dp
+    val topChromeHeight = when {
+        expanded -> 76.dp
+        spacious -> 65.dp
+        else -> 59.dp
+    }
+    val availableHeightDp = (widgetHeight - topChromeHeight).value
+    if (BuildConfig.DEBUG) {
+        Log.d(
+            WIDGET_LAYOUT_LOG_TAG,
+            "render appWidgetId=$appWidgetId source=$triggerSource " +
+                "launcher=${liveOptions.logValue()} stable=${stableOptions.logValue()} " +
+                "local=${localWidth.value}x${localHeight.value}dp " +
+                "chosen=${widgetWidth.value}x${widgetHeight.value}dp " +
+                "availableHeight=$availableHeightDp"
+        )
+    }
     val visibleSections = fitWidgetSections(
         sections = sections,
-        availableHeightDp = (widgetHeight - when {
-            expanded -> 76.dp
-            spacious -> 65.dp
-            else -> 59.dp
-        }).value,
+        availableHeightDp = availableHeightDp,
         fullRowHeightDp = { todo ->
             estimateWidgetTodoRowHeight(
                 todo = todo,
@@ -220,6 +252,22 @@ private fun TodayTodoWidgetContent(
             expanded -> 20f
             spacious -> 17f
             else -> 15f
+        },
+        onSectionDecision = { trace ->
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    WIDGET_LAYOUT_LOG_TAG,
+                    "section appWidgetId=$appWidgetId source=$triggerSource " +
+                        "date=${trace.date} overdue=${trace.isOverdue} " +
+                        "available=${trace.availableHeightDp} consumed=${trace.consumedHeightDp} " +
+                        "remainingBefore=${trace.remainingHeightDp} " +
+                        "spacing=${trace.sectionSpacingHeightDp} " +
+                        "header=${trace.sectionHeaderHeightDp} " +
+                        "firstFull=${trace.firstFullRowHeightDp} " +
+                        "firstCompact=${trace.firstCompactRowHeightDp} " +
+                        "result=${trace.firstRowFit}"
+                )
+            }
         }
     )
     val addIntent = Intent(context, MainActivity::class.java)
@@ -310,6 +358,10 @@ private fun TodayTodoWidgetContent(
         }
     }
 }
+
+private fun WidgetLauncherOptions?.logValue(): String = this?.let {
+    "min=${it.minWidthDp}x${it.minHeightDp},max=${it.maxWidthDp}x${it.maxHeightDp}"
+} ?: "none"
 
 @Composable
 private fun WidgetDateHeader(
