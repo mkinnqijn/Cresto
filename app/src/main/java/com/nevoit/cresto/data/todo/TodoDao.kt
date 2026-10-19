@@ -308,22 +308,22 @@ interface TodoDao {
     @Query("SELECT COUNT(*) FROM todo_items WHERE isCompleted = true AND deletedAt IS NULL")
     fun getCompletedCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate = :date AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate <= :date AND COALESCE(endDate, dueDate) >= :date AND deletedAt IS NULL")
     fun getTodoCountByDueDate(date: LocalDate): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate = :date AND isCompleted = 1 AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate <= :date AND COALESCE(endDate, dueDate) >= :date AND isCompleted = 1 AND deletedAt IS NULL")
     fun getCompletedTodoCountByDueDate(date: LocalDate): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate >= :startDate AND dueDate <= :endDate AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate <= :endDate AND COALESCE(endDate, dueDate) >= :startDate AND deletedAt IS NULL")
     fun getTodoCountByDueDateRange(startDate: LocalDate, endDate: LocalDate): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate >= :startDate AND dueDate <= :endDate AND isCompleted = 1 AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate <= :endDate AND COALESCE(endDate, dueDate) >= :startDate AND isCompleted = 1 AND deletedAt IS NULL")
     fun getCompletedTodoCountByDueDateRange(startDate: LocalDate, endDate: LocalDate): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM todo_items WHERE isCompleted = 0 AND deletedAt IS NULL")
     fun getPendingTodoCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM todo_items WHERE dueDate < :today AND isCompleted = 0 AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM todo_items WHERE COALESCE(endDate, dueDate) < :today AND isCompleted = 0 AND deletedAt IS NULL")
     fun getOverdueTodoCount(today: LocalDate): Flow<Int>
 
     @Query(
@@ -331,14 +331,14 @@ interface TodoDao {
         SELECT COUNT(*) FROM todo_items
         WHERE isCompleted = 0
             AND deletedAt IS NULL
-            AND COALESCE(dueDate, substr(creationDateTime, 1, 10)) < :thresholdDate
+            AND COALESCE(endDate, dueDate, substr(creationDateTime, 1, 10)) < :thresholdDate
     """
     )
     fun getStalePendingTodoCount(thresholdDate: LocalDate): Flow<Int>
 
     @Query(
         """
-        SELECT MIN(COALESCE(dueDate, substr(creationDateTime, 1, 10)))
+        SELECT MIN(COALESCE(endDate, dueDate, substr(creationDateTime, 1, 10)))
         FROM todo_items
         WHERE isCompleted = 0 AND deletedAt IS NULL
     """

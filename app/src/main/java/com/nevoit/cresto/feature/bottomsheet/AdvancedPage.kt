@@ -105,7 +105,7 @@ fun AdvancedPage(
     onRepeatFrequencyChange: (RepeatFrequency?) -> Unit,
     onRequestCustomRepeat: () -> Unit,
     showMenu: (anchorBounds: Rect, items: List<GlasenseMenuItem>) -> Unit,
-    onRequestCustomDate: (Rect, LocalDate?, (LocalDate?) -> Unit) -> Unit,
+    onRequestCustomDate: (Rect, LocalDate?, Int, (LocalDate?) -> Unit) -> Unit,
     onRequestCustomTime: (Rect, LocalTime?, LocalTime?, LocalTime?, (LocalTime?) -> Unit) -> Unit,
     onRequestCustomReminder: (Rect) -> Unit,
     navigateToBasic: () -> Unit
@@ -414,13 +414,17 @@ fun AdvancedPage(
                             Icon(
                                 painter =
                                     painterResource(id = R.drawable.ic_calendar),
-                                contentDescription = stringResource(R.string.due_date),
+                                contentDescription = stringResource(
+                                    if (isMultiDayEnabled) R.string.start_date else R.string.due_date
+                                ),
                                 modifier = Modifier
                                     .padding(end = 8.dp)
                                     .width(28.dp)
                             )
                             Text(
-                                text = stringResource(R.string.due_date),
+                                text = stringResource(
+                                    if (isMultiDayEnabled) R.string.start_date else R.string.due_date
+                                ),
                                 fontWeight = FontWeight.Normal,
                                 modifier = Modifier
                                     .align(Alignment.CenterVertically)
@@ -443,7 +447,12 @@ fun AdvancedPage(
                                     ) {
                                         onRequestCustomDate(
                                             dateButtonBounds,
-                                            finalDate
+                                            finalDate,
+                                            if (isMultiDayEnabled) {
+                                                R.string.select_start_date
+                                            } else {
+                                                R.string.select_due_date
+                                            }
                                         ) { newDate ->
                                             onFinalDateChange(newDate)
                                         }
@@ -563,7 +572,8 @@ fun AdvancedPage(
                                     ) {
                                         onRequestCustomDate(
                                             endDateButtonBounds,
-                                            endDate ?: finalDate ?: LocalDate.now()
+                                            endDate ?: finalDate ?: LocalDate.now(),
+                                            R.string.select_end_date
                                         ) { selected ->
                                             val start = finalDate ?: LocalDate.now()
                                             onEndDateChange((selected ?: start).coerceAtLeast(start))

@@ -53,6 +53,19 @@ class TodayTodoWidgetDataTest {
         assertEquals(listOf(1, 1, 1), sections.map { it.todos.single().id })
     }
 
+    @Test fun `ongoing multi-day todo remains visible after its start date`() {
+        val item = todo(1, "09:00").copy(
+            dueDate = today.minusDays(2),
+            endDate = today.plusDays(1)
+        )
+
+        assertEquals(
+            listOf(today, today.plusDays(1)),
+            upcomingWidgetSections(listOf(item), today, today.atTime(20, 0)).map { it.date }
+        )
+        assertEquals(false, item.isWidgetOverdue(today, LocalTime.of(20, 0)))
+    }
+
     @Test fun `ties use creation time then id even if Room emits a different order`() {
         val input = listOf(todo(3, "09:00"), todo(2, "09:00"),
             todo(1, "09:00").copy(creationDateTime = today.atTime(1, 0)))

@@ -4,6 +4,7 @@ import android.content.Context
 import com.nevoit.cresto.R
 import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.TodoReminderMode
+import com.nevoit.cresto.data.todo.hasDateRange
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -66,14 +67,25 @@ internal fun TodoItem.buildReminderNotificationText(
             when {
                 date != null && dayOffset != null && dayOffset > 0 -> {
                     text(
-                        R.string.reminder_notification_days_until_due,
+                        if (hasDateRange()) {
+                            R.string.reminder_notification_days_until_start
+                        } else {
+                            R.string.reminder_notification_days_until_due
+                        },
                         formatDate(date),
                         dayOffset
                     )
                 }
 
                 date != null -> {
-                    text(R.string.reminder_notification_due_date, formatDate(date))
+                    text(
+                        if (hasDateRange()) {
+                            R.string.reminder_notification_start_date
+                        } else {
+                            R.string.reminder_notification_due_date
+                        },
+                        formatDate(date)
+                    )
                 }
 
                 time != null -> {

@@ -263,6 +263,7 @@ fun MainScreen(
     var isDatePickerVisible by remember { mutableStateOf(false) }
     var dateButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var sheetFinalDate by remember { mutableStateOf<LocalDate?>(null) }
+    var sheetDatePickerTitleResource by remember { mutableIntStateOf(R.string.select_due_date) }
     var onDateSelectedCallback by remember { mutableStateOf<(LocalDate?) -> Unit>({}) }
     var isTimePickerVisible by remember { mutableStateOf(false) }
     var timePickerRequestKey by remember { mutableIntStateOf(0) }
@@ -627,9 +628,10 @@ fun MainScreen(
                         )
                     },
                     showDialog = showDialog,
-                    onRequestCustomDate = { bounds, initialDate, onSelected ->
+                    onRequestCustomDate = { bounds, initialDate, titleResource, onSelected ->
                         dateButtonBounds = bounds
                         sheetFinalDate = initialDate
+                        sheetDatePickerTitleResource = titleResource
                         onDateSelectedCallback = onSelected
                         isDatePickerVisible = true
                     },
@@ -681,6 +683,7 @@ fun MainScreen(
                 isVisible = isDatePickerVisible,
                 anchorBounds = dateButtonBounds,
                 initialDate = sheetFinalDate,
+                titleResource = sheetDatePickerTitleResource,
                 onDismiss = { isDatePickerVisible = false },
                 onDateSelected = { date ->
                     onDateSelectedCallback(date)

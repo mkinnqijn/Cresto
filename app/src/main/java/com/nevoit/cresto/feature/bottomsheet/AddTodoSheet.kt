@@ -91,13 +91,14 @@ enum class SelectedButton {
 fun AddTodoSheet(
     modifier: Modifier = Modifier,
     finalDate: LocalDate?,
+    isMultiDayEnabled: Boolean = false,
     onFinalDateChange: (LocalDate?) -> Unit,
     focusRequester: FocusRequester = remember { FocusRequester() },
     autoRequestFocus: Boolean = true,
     onAddClick: (String, Int, LocalDate?) -> Unit,
     onNavigate: () -> Unit,
     onClose: () -> Unit,
-    onRequestCustomDate: (Rect, LocalDate?, (LocalDate?) -> Unit) -> Unit
+    onRequestCustomDate: (Rect, LocalDate?, Int, (LocalDate?) -> Unit) -> Unit
 ) {
     // State for tracking the currently selected button (due date, flag, etc.)
     var selectedButton by remember { mutableStateOf(SelectedButton.NONE) }
@@ -218,7 +219,9 @@ fun AddTodoSheet(
                             ) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_calendar),
-                                    contentDescription = stringResource(R.string.due_date),
+                                    contentDescription = stringResource(
+                                        if (isMultiDayEnabled) R.string.start_date else R.string.due_date
+                                    ),
                                     modifier = Modifier.width(28.dp),
                                     tint = if (finalDate != null) {
                                         AppColors.primary
@@ -242,7 +245,12 @@ fun AddTodoSheet(
                                     onRequestCustomDate = { coordinates ->
                                         onRequestCustomDate(
                                             coordinates.boundsInWindow(),
-                                            finalDate
+                                            finalDate,
+                                            if (isMultiDayEnabled) {
+                                                R.string.select_start_date
+                                            } else {
+                                                R.string.select_due_date
+                                            }
                                         ) { newDate ->
                                             onFinalDateChange(newDate)
                                             scope.launch {

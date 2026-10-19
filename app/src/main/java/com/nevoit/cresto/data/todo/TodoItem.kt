@@ -71,6 +71,31 @@ data class TodoItem(
     val occurrenceEditedAt: LocalDateTime? = null
 )
 
+/** A non-null end date marks the persisted date pair as a schedule range. */
+fun TodoItem.hasDateRange(): Boolean = dueDate != null && endDate != null
+
+/** Last calendar date covered by this item; for a normal todo this is its due date. */
+fun TodoItem.semanticEndDate(): LocalDate? = endDate ?: dueDate
+
+fun TodoItem.isActiveOn(date: LocalDate): Boolean {
+    val start = dueDate ?: return false
+    val end = semanticEndDate() ?: return false
+    return !date.isBefore(start) && !date.isAfter(end)
+}
+
+fun TodoItem.isOverdueAt(today: LocalDate, nowTime: LocalTime): Boolean {
+    if (isCompleted || deletedAt != null) return false
+    return hasPassedScheduleEnd(today, nowTime)
+}
+
+fun TodoItem.hasPassedScheduleEnd(today: LocalDate, nowTime: LocalTime): Boolean {
+    val endDate = semanticEndDate() ?: return false
+    if (endDate.isBefore(today)) return true
+    if (endDate != today) return false
+    val deadline = endTime ?: startTime
+    return deadline != null && nowTime.isAfter(deadline)
+}
+
 fun TodoItem.reminderDateTime(): LocalDateTime? {
     return when (reminderMode) {
         TodoReminderMode.BeforeStart -> {

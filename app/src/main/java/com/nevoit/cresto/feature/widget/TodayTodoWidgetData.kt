@@ -1,6 +1,8 @@
 package com.nevoit.cresto.feature.widget
 
 import com.nevoit.cresto.data.todo.TodoItem
+import com.nevoit.cresto.data.todo.hasPassedScheduleEnd
+import com.nevoit.cresto.data.todo.semanticEndDate
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -53,7 +55,7 @@ internal fun upcomingWidgetSections(
                 todo.completedDateTime?.isAfter(completionCutoff) == true &&
                 todo.widgetCompletionToken() !in hiddenCompletedTokens
             dueDate != null &&
-                !dueDate.isBefore(today) &&
+                todo.semanticEndDate()?.let { !it.isBefore(today) } == true &&
                 (!todo.isCompleted || recentlyCompleted) &&
                 todo.deletedAt == null &&
                 !todo.hasWidgetOverdueDeadline(today, nowTime)
@@ -96,14 +98,7 @@ internal fun TodoItem.isWidgetOverdue(today: LocalDate, nowTime: LocalTime): Boo
 }
 
 private fun TodoItem.hasWidgetOverdueDeadline(today: LocalDate, nowTime: LocalTime): Boolean {
-    val date = endDate ?: dueDate ?: return false
-    if (date.isBefore(today)) return true
-    if (date != today) return false
-    return when {
-        endTime != null -> nowTime.isAfter(endTime)
-        startTime != null -> nowTime.isAfter(startTime)
-        else -> false
-    }
+    return hasPassedScheduleEnd(today, nowTime)
 }
 
 /** One merged overdue section, with the most recently expired items first. */
@@ -140,7 +135,7 @@ internal fun overdueWidgetSection(
 }
 
 private fun TodoItem.widgetExpiryDateTime(today: LocalDate): LocalDateTime {
-    val date = endDate ?: requireNotNull(dueDate)
+    val date = requireNotNull(semanticEndDate())
     val time = endTime ?: startTime
     return when {
         time != null -> date.atTime(time)
@@ -156,7 +151,7 @@ internal fun nextWidgetOverdueTransitionDelayMillis(
     now: LocalDateTime = LocalDateTime.now()
 ): Long? = todos.asSequence()
     .filter { todo ->
-        !todo.isCompleted && todo.deletedAt == null && todo.dueDate == today
+        !todo.isCompleted && todo.deletedAt == null && todo.semanticEndDate() == today
     }
     .mapNotNull { todo -> (todo.endTime ?: todo.startTime)?.let(today::atTime) }
     .map { transition -> Duration.between(now, transition).toMillis() }
@@ -171,7 +166,7 @@ internal fun nextWidgetCompletionExpiryDelayMillis(
     .filter { todo ->
         todo.isCompleted &&
             todo.deletedAt == null &&
-            todo.dueDate?.let { !it.isBefore(today) } == true
+            todo.semanticEndDate()?.let { !it.isBefore(today) } == true
     }
     .mapNotNull { it.completedDateTime }
     .map { completedAt ->

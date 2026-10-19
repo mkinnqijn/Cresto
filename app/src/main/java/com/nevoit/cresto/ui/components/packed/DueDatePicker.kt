@@ -44,6 +44,7 @@ fun DueDatePicker(
     direction: PopupDirection = PopupDirection.Auto,
     anchorBounds: Rect,
     initialDate: LocalDate?,
+    titleResource: Int = R.string.select_due_date,
     onDismiss: () -> Unit,
     onDateSelected: (LocalDate?) -> Unit
 ) {
@@ -122,7 +123,7 @@ fun DueDatePicker(
                     onClick = onDismiss
                 )
             },
-            title = stringResource(R.string.select_due_date),
+            title = stringResource(titleResource),
             trailing = {
                 Action(
                     icon = painterResource(id = R.drawable.ic_checkmark),

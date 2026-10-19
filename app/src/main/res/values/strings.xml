@@ -44,6 +44,8 @@
     <string name="delete_selected_permanently_message">The selected todos and their tasks will be permanently deleted. This action cannot be undone.</string>
     <string name="filter_default">Default</string>
     <string name="due_date">Due Date</string>
+    <string name="start_date">Start date</string>
+    <string name="schedule_date">Date</string>
     <string name="flag">Flag</string>
     <string name="title">Title</string>
     <string name="completed">Completed</string>
@@ -301,7 +303,9 @@
     <string name="backup_import_result_message">Total %1$d items, imported %2$d, skipped %3$d.</string>
     <string name="confirm_action_title">%1$s?</string>
     <string name="sort">Sort</string>
-    <string name="select_due_date">Select Due Date</string>
+    <string name="select_due_date">Select due date</string>
+    <string name="select_start_date">Select start date</string>
+    <string name="select_end_date">Select end date</string>
     <string name="calendar_view">Calendar View</string>
     <string name="no_task_this_day">No task this day</string>
     <string name="take_a_break">Take a break</string>
@@ -344,7 +348,9 @@
     <string name="reminder_notification_start_time">Starts at %1$s</string>
     <string name="reminder_notification_time_range">Time: %1$s-%2$s</string>
     <string name="reminder_notification_days_until_due">Due on %1$s, in %2$d days</string>
+    <string name="reminder_notification_days_until_start">Starts on %1$s, in %2$d days</string>
     <string name="reminder_notification_due_date">Due date: %1$s</string>
+    <string name="reminder_notification_start_date">Start date: %1$s</string>
     <string name="reminder_notification_reminder_time">Reminder time: %1$s</string>
     <string name="reminder_notification_date_format">%1$d/%2$d</string>
     <string name="reminder_notification_action_complete">Complete</string>

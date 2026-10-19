@@ -702,27 +702,6 @@ fun DetailScreen(
                                         color = AppColors.content
                                     )
                                 }
-                                if (currentItem.todoItem.endDate != null) {
-                                    VDivider()
-                                    TodoConfigRow(
-                                        icon = painterResource(id = R.drawable.ic_calendar),
-                                        contentDescription = stringResource(R.string.end_date),
-                                        title = stringResource(R.string.end_date),
-                                        onButtonClick = { bounds ->
-                                            dateButtonBounds = bounds
-                                            isPickingEndDate = true
-                                            isDatePickerVisible = true
-                                        }
-                                    ) {
-                                        Text(
-                                            text = currentItem.todoItem.endDate.format(
-                                                DateTimeFormatter.ofPattern("yyyy/M/d")
-                                            ),
-                                            fontWeight = FontWeight.Normal,
-                                            color = AppColors.content
-                                        )
-                                    }
-                                }
                                 VDivider()
                                 TodoConfigRow(
                                     icon = painterResource(id = R.drawable.ic_folder),
@@ -745,8 +724,20 @@ fun DetailScreen(
                                 VDivider()
                                 TodoConfigRow(
                                     icon = painterResource(id = R.drawable.ic_calendar),
-                                    contentDescription = stringResource(R.string.due_date),
-                                    title = stringResource(R.string.due_date),
+                                    contentDescription = stringResource(
+                                        if (currentItem.todoItem.endDate != null) {
+                                            R.string.start_date
+                                        } else {
+                                            R.string.due_date
+                                        }
+                                    ),
+                                    title = stringResource(
+                                        if (currentItem.todoItem.endDate != null) {
+                                            R.string.start_date
+                                        } else {
+                                            R.string.due_date
+                                        }
+                                    ),
                                     onButtonClick = { bounds ->
                                         showDatePicker(bounds)
                                     }
@@ -758,6 +749,27 @@ fun DetailScreen(
                                         modifier = Modifier,
                                         color = AppColors.content
                                     )
+                                }
+                                if (currentItem.todoItem.endDate != null) {
+                                    VDivider()
+                                    TodoConfigRow(
+                                        icon = painterResource(id = R.drawable.ic_calendar),
+                                        contentDescription = stringResource(R.string.end_date),
+                                        title = stringResource(R.string.end_date),
+                                        onButtonClick = { bounds ->
+                                            dateButtonBounds = bounds
+                                            isPickingEndDate = true
+                                            isDatePickerVisible = true
+                                        }
+                                    ) {
+                                        Text(
+                                            text = currentItem.todoItem.endDate.format(
+                                                DateTimeFormatter.ofPattern("yyyy/M/d")
+                                            ),
+                                            fontWeight = FontWeight.Normal,
+                                            color = AppColors.content
+                                        )
+                                    }
                                 }
                                 VDivider()
                                 TodoConfigRow(
@@ -1103,6 +1115,11 @@ fun DetailScreen(
                     currentItem?.todoItem?.endDate
                 } else {
                     finalDate
+                },
+                titleResource = when {
+                    isPickingEndDate -> R.string.select_end_date
+                    currentItem?.todoItem?.endDate != null -> R.string.select_start_date
+                    else -> R.string.select_due_date
                 },
                 onDismiss = dismissDatePicker,
                 onDateSelected = { date ->

@@ -68,6 +68,8 @@ import com.nevoit.cresto.R
 import com.nevoit.cresto.data.todo.SubTodoItem
 import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.TodoItemWithSubTodos
+import com.nevoit.cresto.data.todo.hasDateRange
+import com.nevoit.cresto.data.todo.semanticEndDate
 import com.nevoit.cresto.theme.AppColors
 import com.nevoit.cresto.theme.AppSpecs
 import com.nevoit.cresto.theme.defaultEnterTransition
@@ -198,15 +200,22 @@ fun TodoItemRow(
                 }
             }
 
-            val isToday = itemTodo.dueDate == today
-            val isExpired = itemTodo.dueDate?.let { it < today } == true
+            val isDateRange = itemTodo.hasDateRange()
+            val semanticEndDate = itemTodo.semanticEndDate()
+            val isToday = !isDateRange && itemTodo.dueDate == today
+            val isExpired = semanticEndDate?.let { it < today } == true
 
-            val rawFormattedDate = remember(itemTodo.dueDate, today) {
-                itemTodo.dueDate?.let { dueDate ->
-                    if (dueDate.year == today.year) {
-                        dueDate.format(thisYearFormatter)
+            val rawFormattedDate = remember(itemTodo.dueDate, itemTodo.endDate, today) {
+                itemTodo.dueDate?.let { startDate ->
+                    fun formatDate(date: LocalDate): String = if (date.year == today.year) {
+                        date.format(thisYearFormatter)
                     } else {
-                        dueDate.format(otherYearFormatter)
+                        date.format(otherYearFormatter)
+                    }
+                    if (isDateRange) {
+                        "${formatDate(startDate)}–${formatDate(requireNotNull(itemTodo.endDate))}"
+                    } else {
+                        formatDate(startDate)
                     }
                 }
             }
@@ -233,8 +242,29 @@ fun TodoItemRow(
                 }
             }
 
+            val isRangeOverdueTime = isDateRange &&
+                    semanticEndDate == today &&
+                    !itemTodo.isCompleted &&
+                    ((itemTodo.endTime != null && nowTime.isAfter(itemTodo.endTime)) ||
+                            (itemTodo.endTime == null && itemTodo.startTime != null && nowTime.isAfter(
+                                itemTodo.startTime
+                            )))
+
             val dueDateText: String? = when {
                 rawFormattedDate == null -> null
+                isDateRange -> {
+                    if ((isExpired || isRangeOverdueTime) &&
+                        isOverdueMarkerEnabled &&
+                        !itemTodo.isCompleted
+                    ) {
+                        stringResource(
+                            R.string.overdue_with_date,
+                            formattedDateWithTime ?: rawFormattedDate
+                        )
+                    } else {
+                        formattedDateWithTime
+                    }
+                }
                 isToday && !itemTodo.isCompleted -> {
                     val baseText = if (isDueTodayMarkerEnabled) dueTodayText else rawFormattedDate
                     if (timeString != null) {
@@ -274,6 +304,7 @@ fun TodoItemRow(
 
             val dueDateColor = remember(
                 itemTodo.dueDate,
+                itemTodo.endDate,
                 itemTodo.isCompleted,
                 isDueTodayMarkerEnabled,
                 isOverdueMarkerEnabled,
@@ -285,6 +316,16 @@ fun TodoItemRow(
             ) {
                 when {
                     itemTodo.dueDate == null -> contentColor.copy(alpha = 0.4f)
+                    isDateRange -> {
+                        if ((isExpired || isRangeOverdueTime) &&
+                            isOverdueMarkerEnabled &&
+                            !itemTodo.isCompleted
+                        ) {
+                            errorColor
+                        } else {
+                            contentColor.copy(alpha = 0.4f)
+                        }
+                    }
                     isToday -> {
                         val isOverdueTime = !itemTodo.isCompleted && timeString != null && (
                                 (itemTodo.endTime != null && nowTime.isAfter(itemTodo.endTime)) ||
@@ -361,7 +402,7 @@ fun TodoItemRow(
 //                }
                 TodoItemMetadataLayout(
                     modifier = Modifier.fillMaxWidth(),
-                    showDueDate = (dueDateText != null && showDate) || (isExpired),
+                    showDueDate = (dueDateText != null && showDate) || isExpired || isRangeOverdueTime,
                     showTasks = hasTasks,
                     lineSpacing = 2.dp,
                     dueContent = {

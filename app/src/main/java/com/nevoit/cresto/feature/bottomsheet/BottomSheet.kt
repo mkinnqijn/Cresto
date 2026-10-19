@@ -114,7 +114,7 @@ fun BottomSheet(
     aiViewModel: AiViewModel = viewModel(),
     showDialog: (items: List<DialogItemData>, title: String, message: String?) -> Unit,
     showMenu: (anchorBounds: Rect, items: List<GlasenseMenuItem>) -> Unit,
-    onRequestCustomDate: (Rect, LocalDate?, (LocalDate?) -> Unit) -> Unit,
+    onRequestCustomDate: (Rect, LocalDate?, Int, (LocalDate?) -> Unit) -> Unit,
     onRequestCustomTime: (Rect, LocalTime?, LocalTime?, LocalTime?, (LocalTime?) -> Unit) -> Unit,
     onRequestCustomReminder: (Rect, Boolean, (TodoReminderConfig) -> Unit) -> Unit
 ) {
@@ -510,6 +510,7 @@ fun BottomSheet(
                         }
                     },
                     finalDate = finalDate,
+                    isMultiDayEnabled = isMultiDayEnabled,
                     onFinalDateChange = {
                         finalDate = it
                         val start = it ?: LocalDate.now()

@@ -55,6 +55,8 @@ import com.kyant.shapes.RoundedRectangle
 import com.nevoit.cresto.R
 import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.TodoItemWithSubTodos
+import com.nevoit.cresto.data.todo.hasDateRange
+import com.nevoit.cresto.data.todo.semanticEndDate
 import com.nevoit.cresto.feature.settings.util.SettingsManager
 import com.nevoit.cresto.theme.AppButtonColors
 import com.nevoit.cresto.theme.AppColors
@@ -605,16 +607,26 @@ private fun TodoItem.shareDueDateMeta(
         overdueWithDate = { rawDate -> overdueWithDateTemplate.format(rawDate) }
     )
 
-    val isToday = dueDate == today
-    val isExpired = dueDate?.let { it < today } == true
+    val isDateRange = hasDateRange()
+    val semanticEndDate = semanticEndDate()
+    val isToday = !isDateRange && dueDate == today
+    val isExpired = semanticEndDate?.let { it < today } == true
     val timeText = shareTimeText(startTime, endTime)
     val isOverdueTime = !isCompleted && timeText.isNotEmpty() && (
             (endTime != null && nowTime.isAfter(endTime)) ||
                     (endTime == null && startTime != null && nowTime.isAfter(startTime))
             )
+    val isRangeOverdueTime = isDateRange && semanticEndDate == today && isOverdueTime
 
     val color = when {
         dueDate == null -> contentColor.copy(alpha = 0.4f)
+        isDateRange -> if ((isExpired || isRangeOverdueTime) &&
+            isOverdueMarkerEnabled && !isCompleted
+        ) {
+            errorColor
+        } else {
+            contentColor.copy(alpha = 0.4f)
+        }
         isToday -> when {
             isOverdueTime -> errorColor
             isDueTodayMarkerEnabled && !isCompleted -> highlightTextColor
@@ -644,16 +656,35 @@ private fun TodoItem.shareDueDateText(
     overdueWithDate: (String) -> String
 ): String? {
     val dueDate = dueDate ?: return null
-    val rawFormattedDate = if (dueDate.year == today.year) {
-        dueDate.format(thisYearFormatter)
+    fun formatDate(date: LocalDate): String = if (date.year == today.year) {
+        date.format(thisYearFormatter)
     } else {
-        dueDate.format(otherYearFormatter)
+        date.format(otherYearFormatter)
+    }
+    val rawFormattedDate = if (hasDateRange()) {
+        "${formatDate(dueDate)}–${formatDate(requireNotNull(endDate))}"
+    } else {
+        formatDate(dueDate)
     }
     val timeText = shareTimeText(startTime, endTime)
-    val isToday = dueDate == today
-    val isExpired = dueDate < today
+    val semanticEndDate = semanticEndDate() ?: dueDate
+    val isDateRange = hasDateRange()
+    val isToday = !isDateRange && dueDate == today
+    val isExpired = semanticEndDate < today
+    val isRangeOverdueTime = isDateRange && semanticEndDate == today && !isCompleted && (
+            (endTime != null && nowTime.isAfter(endTime)) ||
+                    (endTime == null && startTime != null && nowTime.isAfter(startTime))
+            )
 
     return when {
+        isDateRange -> {
+            val rangeWithTime = if (timeText.isNotEmpty()) "$rawFormattedDate $timeText" else rawFormattedDate
+            if ((isExpired || isRangeOverdueTime) && isOverdueMarkerEnabled && !isCompleted) {
+                overdueWithDate(rangeWithTime)
+            } else {
+                rangeWithTime
+            }
+        }
         isToday && !isCompleted -> {
             val baseText = if (isDueTodayMarkerEnabled) dueTodayText else rawFormattedDate
             if (timeText.isNotEmpty()) {
