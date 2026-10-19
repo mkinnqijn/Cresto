@@ -2,6 +2,7 @@ package com.nevoit.cresto.feature.widget
 
 import com.nevoit.cresto.data.todo.TodoItem
 import com.nevoit.cresto.data.todo.hasPassedScheduleEnd
+import com.nevoit.cresto.data.todo.hasDateRange
 import com.nevoit.cresto.data.todo.semanticEndDate
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -60,15 +61,8 @@ internal fun upcomingWidgetSections(
                 todo.deletedAt == null &&
                 !todo.hasWidgetOverdueDeadline(today, nowTime)
         }
-        .flatMap { todo ->
-            val start = requireNotNull(todo.dueDate).coerceAtLeast(today)
-            val end = todo.endDate?.coerceAtLeast(start) ?: start
-            generateSequence(start) { date ->
-                date.plusDays(1).takeUnless { it.isAfter(end) }
-            }.map { displayDate -> todo.copy(dueDate = displayDate) }
-        }
         .sortedWith(
-            compareBy<TodoItem> { it.dueDate }
+            compareBy<TodoItem> { it.widgetGroupDate(today) }
                 .thenBy { it.startTime != null }
                 .thenBy { it.startTime }
                 .thenBy { it.creationDateTime }
@@ -78,10 +72,10 @@ internal fun upcomingWidgetSections(
 
     val countsByDate = upcoming.asSequence()
         .filterNot { it.isCompleted }
-        .groupingBy { requireNotNull(it.dueDate) }
+        .groupingBy { it.widgetGroupDate(today) }
         .eachCount()
     return upcoming
-        .groupBy { requireNotNull(it.dueDate) }
+        .groupBy { it.widgetGroupDate(today) }
         .map { (date, visibleTodos) ->
             WidgetTodoSection(
                 date = date,
@@ -89,6 +83,13 @@ internal fun upcomingWidgetSections(
                 todos = visibleTodos
             )
         }
+}
+
+/** A multi-day item has one stable position in the widget's multi-day summary. */
+private fun TodoItem.widgetGroupDate(today: LocalDate): LocalDate {
+    val start = requireNotNull(dueDate)
+    val end = semanticEndDate() ?: start
+    return if (!today.isBefore(start) && !today.isAfter(end)) today else start
 }
 
 /** Mirrors the app list's existing overdue/expired rules. */
@@ -267,6 +268,14 @@ internal fun TodoItem.widgetTime(): String {
     val formatter = DateTimeFormatter.ofPattern("HH:mm")
     val startText = start.format(formatter)
     return endTime?.let { end -> "$startText - ${end.format(formatter)}" } ?: startText
+}
+
+internal fun TodoItem.widgetDateRange(): String {
+    if (!hasDateRange()) return ""
+    val start = requireNotNull(dueDate)
+    val end = requireNotNull(endDate)
+    val formatter = DateTimeFormatter.ofPattern("M/d")
+    return "${start.format(formatter)} - ${end.format(formatter)}"
 }
 
 internal fun TodoItem.widgetCompletionToken(): String =

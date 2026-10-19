@@ -438,6 +438,8 @@ private fun TodayTodoRow(
     compact: Boolean
 ) {
     val location = todo.location.trim()
+    val dateRange = todo.widgetDateRange()
+    val hasDateRange = dateRange.isNotEmpty()
     val hasTime = todo.startTime != null
     val hasLocation = location.isNotEmpty()
     val titleMaxLines = if (compact) 1 else 4
@@ -495,7 +497,7 @@ private fun TodayTodoRow(
             ),
             maxLines = titleMaxLines
         )
-        if (hasTime || hasLocation) {
+        if (hasDateRange || hasTime || hasLocation) {
             Spacer(GlanceModifier.width(8.dp))
             Column(
                 GlanceModifier.width(
@@ -506,6 +508,18 @@ private fun TodayTodoRow(
                     }
                 )
             ) {
+                if (hasDateRange) {
+                    WidgetMetadata(
+                        icon = R.drawable.ic_calendar,
+                        text = dateRange,
+                        colors = colors,
+                        expanded = expanded,
+                        maxLines = 1
+                    )
+                }
+                if (hasDateRange && (hasTime || hasLocation)) {
+                    Spacer(GlanceModifier.height(2.dp))
+                }
                 if (hasTime) {
                     WidgetMetadata(
                         icon = R.drawable.ic_clock,
@@ -611,7 +625,8 @@ private fun estimateWidgetTodoRowHeight(
     } else {
         0f
     }
-    val hasMetadata = todo.startTime != null || todo.location.isNotBlank()
+    val hasDateRange = todo.widgetDateRange().isNotEmpty()
+    val hasMetadata = hasDateRange || todo.startTime != null || todo.location.isNotBlank()
     val titleWidth = (widgetWidthDp - horizontalPadding - checkboxAndSpacing -
         hideButtonWidth - if (hasMetadata) metadataWidth else 0f).coerceAtLeast(56f)
     val titleFontSize = if (expanded) 16f else 14f
@@ -636,10 +651,11 @@ private fun estimateWidgetTodoRowHeight(
         )
     }
     val metadataLineHeight = if (expanded) 18f else 16f
-    val metadataHeight =
-        (if (todo.startTime != null) metadataLineHeight else 0f) +
-            (if (todo.startTime != null && locationLines > 0) 2f else 0f) +
-            locationLines * metadataLineHeight
+    val metadataRows = (if (hasDateRange) 1 else 0) +
+        (if (todo.startTime != null) 1 else 0) +
+        locationLines
+    val metadataHeight = metadataRows * metadataLineHeight +
+        (metadataRows - 1).coerceAtLeast(0) * 2f
     val controlHeight = if (expanded) 30f else 26f
     val verticalPadding = when {
         expanded -> 16f

@@ -42,28 +42,54 @@ class TodayTodoWidgetDataTest {
         )
     }
 
-    @Test fun `multi-day todo appears on every covered date and expires on its end date`() {
+    @Test fun `multi-day todo appears once under its start date`() {
         val item = todo(1, "09:00").copy(endDate = today.plusDays(2))
         val sections = upcomingWidgetSections(listOf(item), today, today.atStartOfDay())
 
-        assertEquals(
-            listOf(today, today.plusDays(1), today.plusDays(2)),
-            sections.map { it.date }
-        )
-        assertEquals(listOf(1, 1, 1), sections.map { it.todos.single().id })
+        assertEquals(listOf(today), sections.map { it.date })
+        assertEquals(listOf(1), sections.flatMap { it.todos }.map { it.id })
+        assertEquals("10/13 - 10/15", item.widgetDateRange())
     }
 
-    @Test fun `ongoing multi-day todo remains visible after its start date`() {
+    @Test fun `ongoing multi-day todo appears once under today`() {
         val item = todo(1, "09:00").copy(
             dueDate = today.minusDays(2),
             endDate = today.plusDays(1)
         )
 
         assertEquals(
-            listOf(today, today.plusDays(1)),
+            listOf(today),
             upcomingWidgetSections(listOf(item), today, today.atTime(20, 0)).map { it.date }
         )
         assertEquals(false, item.isWidgetOverdue(today, LocalTime.of(20, 0)))
+    }
+
+    @Test fun `future multi-day todo appears once under its start date`() {
+        val item = todo(1).copy(
+            dueDate = today.plusDays(2),
+            endDate = today.plusDays(5)
+        )
+
+        val sections = upcomingWidgetSections(listOf(item), today, today.atStartOfDay())
+
+        assertEquals(listOf(today.plusDays(2)), sections.map { it.date })
+        assertEquals(listOf(1), sections.flatMap { it.todos }.map { it.id })
+        assertEquals("10/15 - 10/18", item.widgetDateRange())
+    }
+
+    @Test fun `single-day date grouping remains unchanged beside a multi-day item`() {
+        val multiDay = todo(1).copy(endDate = today.plusDays(3))
+        val tomorrow = todo(2).copy(dueDate = today.plusDays(1))
+        val later = todo(3).copy(dueDate = today.plusDays(3))
+
+        val sections = upcomingWidgetSections(
+            listOf(multiDay, tomorrow, later),
+            today,
+            today.atStartOfDay()
+        )
+
+        assertEquals(listOf(today, today.plusDays(1), today.plusDays(3)), sections.map { it.date })
+        assertEquals(listOf(1, 2, 3), sections.flatMap { it.todos }.map { it.id })
     }
 
     @Test fun `ties use creation time then id even if Room emits a different order`() {
