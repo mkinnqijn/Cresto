@@ -115,7 +115,16 @@ interface TodoDao {
     fun getAllTodosWithSubTodosSortedByDueDate(): Flow<List<TodoItemWithSubTodos>>
 
     @Transaction
-    @Query("SELECT * FROM todo_items WHERE dueDate = :date AND deletedAt IS NULL ORDER BY creationDateTime DESC")
+    @Query(
+        """
+        SELECT * FROM todo_items
+        WHERE dueDate IS NOT NULL
+          AND dueDate <= :date
+          AND COALESCE(endDate, dueDate) >= :date
+          AND deletedAt IS NULL
+        ORDER BY startTime IS NOT NULL ASC, startTime ASC, creationDateTime ASC, id ASC
+        """
+    )
     fun getTodosByDate(date: LocalDate): Flow<List<TodoItemWithSubTodos>>
 
     @Query("SELECT DISTINCT dueDate FROM todo_items WHERE dueDate IS NOT NULL AND deletedAt IS NULL")
@@ -154,6 +163,13 @@ interface TodoDao {
 
     @Query("SELECT * FROM repeat_rules ORDER BY id ASC")
     suspend fun getAllRepeatRulesSnapshot(): List<RepeatRule>
+
+    @Query("SELECT * FROM repeat_rules ORDER BY id ASC")
+    fun getAllRepeatRules(): Flow<List<RepeatRule>>
+
+    @Transaction
+    @Query("SELECT * FROM todo_items WHERE seriesId = :seriesId ORDER BY occurrenceDate ASC, id ASC")
+    suspend fun getTodosBySeriesIdSnapshot(seriesId: String): List<TodoItemWithSubTodos>
 
     @Query("SELECT * FROM todo_items WHERE seriesId = :seriesId AND occurrenceDate = :occurrenceDate LIMIT 1")
     suspend fun getTodoBySeriesOccurrenceSnapshot(

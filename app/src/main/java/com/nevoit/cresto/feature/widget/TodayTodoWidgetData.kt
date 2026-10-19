@@ -58,9 +58,16 @@ internal fun upcomingWidgetSections(
                 todo.deletedAt == null &&
                 !todo.hasWidgetOverdueDeadline(today, nowTime)
         }
+        .flatMap { todo ->
+            val start = requireNotNull(todo.dueDate).coerceAtLeast(today)
+            val end = todo.endDate?.coerceAtLeast(start) ?: start
+            generateSequence(start) { date ->
+                date.plusDays(1).takeUnless { it.isAfter(end) }
+            }.map { displayDate -> todo.copy(dueDate = displayDate) }
+        }
         .sortedWith(
             compareBy<TodoItem> { it.dueDate }
-                .thenBy { it.startTime == null }
+                .thenBy { it.startTime != null }
                 .thenBy { it.startTime }
                 .thenBy { it.creationDateTime }
                 .thenBy { it.id }
@@ -89,7 +96,7 @@ internal fun TodoItem.isWidgetOverdue(today: LocalDate, nowTime: LocalTime): Boo
 }
 
 private fun TodoItem.hasWidgetOverdueDeadline(today: LocalDate, nowTime: LocalTime): Boolean {
-    val date = dueDate ?: return false
+    val date = endDate ?: dueDate ?: return false
     if (date.isBefore(today)) return true
     if (date != today) return false
     return when {
@@ -133,7 +140,7 @@ internal fun overdueWidgetSection(
 }
 
 private fun TodoItem.widgetExpiryDateTime(today: LocalDate): LocalDateTime {
-    val date = requireNotNull(dueDate)
+    val date = endDate ?: requireNotNull(dueDate)
     val time = endTime ?: startTime
     return when {
         time != null -> date.atTime(time)

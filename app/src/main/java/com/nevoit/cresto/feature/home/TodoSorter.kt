@@ -118,7 +118,22 @@ fun sortTodos(
                     } else {
                         dateB.compareTo(dateA)
                     }
-                    if (dueDateCompare != 0) dueDateCompare else compareByBaseDateTime
+                    if (dueDateCompare != 0) {
+                        dueDateCompare
+                    } else {
+                        val hasTimeCompare = (itemA.startTime != null).compareTo(itemB.startTime != null)
+                        if (hasTimeCompare != 0) {
+                            hasTimeCompare
+                        } else {
+                            val timeCompare = when {
+                                itemA.startTime == null && itemB.startTime == null -> 0
+                                itemA.startTime == null -> -1
+                                itemB.startTime == null -> 1
+                                else -> itemA.startTime.compareTo(itemB.startTime)
+                            }
+                            if (timeCompare != 0) timeCompare else compareByBaseDateTime
+                        }
+                    }
                 }
             }
 

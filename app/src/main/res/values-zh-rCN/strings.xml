@@ -296,6 +296,12 @@
     <string name="select_time">选择时间</string>
     <string name="time_range">时间段</string>
     <string name="all_day">全天</string>
+    <string name="multi_day">跨天</string>
+    <string name="end_date">结束日期</string>
+    <string name="only_this_occurrence">仅本次</string>
+    <string name="entire_series">整个系列</string>
+    <string name="change_repeating_todo">修改重复日程</string>
+    <string name="delete_repeating_todo">删除重复日程</string>
     <string name="reminder">提醒</string>
     <string name="reminder_timing">提醒时机</string>
     <string name="reminder_all_day_morning_8">当天 08:00</string>

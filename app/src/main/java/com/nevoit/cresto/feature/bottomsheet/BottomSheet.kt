@@ -110,7 +110,7 @@ private fun defaultRangeEndTime(startTime: LocalTime): LocalTime {
 @Composable
 fun BottomSheet(
     onDismiss: () -> Unit,
-    onAddClick: (String, String, Int, LocalDate?, LocalTime?, LocalTime?, TodoReminderConfig?, RepeatFrequency?, RepeatRuleConfig?, Int?) -> Unit,
+    onAddClick: (String, String, Int, LocalDate?, LocalDate?, LocalTime?, LocalTime?, TodoReminderConfig?, RepeatFrequency?, RepeatRuleConfig?, Int?) -> Unit,
     aiViewModel: AiViewModel = viewModel(),
     showDialog: (items: List<DialogItemData>, title: String, message: String?) -> Unit,
     showMenu: (anchorBounds: Rect, items: List<GlasenseMenuItem>) -> Unit,
@@ -286,6 +286,8 @@ fun BottomSheet(
     var notesText by remember { mutableStateOf("") }
     var isTimeRangeEnabled by remember { mutableStateOf(false) }
     var isAllDayEnabled by remember { mutableStateOf(true) }
+    var isMultiDayEnabled by remember { mutableStateOf(false) }
+    var endDate by remember { mutableStateOf<LocalDate?>(null) }
     val initialRangeStartTime = remember { defaultRangeStartTime() }
     var rangeStartTime by remember { mutableStateOf(initialRangeStartTime) }
     var rangeEndTime by remember { mutableStateOf(defaultRangeEndTime(initialRangeStartTime)) }
@@ -508,7 +510,13 @@ fun BottomSheet(
                         }
                     },
                     finalDate = finalDate,
-                    onFinalDateChange = { finalDate = it },
+                    onFinalDateChange = {
+                        finalDate = it
+                        val start = it ?: LocalDate.now()
+                        if (isMultiDayEnabled && (endDate == null || endDate!!.isBefore(start))) {
+                            endDate = start
+                        }
+                    },
                     focusRequester = basicFocusRequester,
                     autoRequestFocus = !isReturningFromAdvanced,
                     onAddClick = { title, flagIndex, date ->
@@ -532,6 +540,7 @@ fun BottomSheet(
                                 notesText,
                                 flagIndex,
                                 date,
+                                endDate.takeIf { isMultiDayEnabled && date != null },
                                 startTime,
                                 endTime,
                                 reminder,
@@ -575,9 +584,17 @@ fun BottomSheet(
                         notesText = notesText,
                         onNotesChange = { notesText = it },
                         finalDate = finalDate,
-                        onFinalDateChange = { finalDate = it },
+                        onFinalDateChange = {
+                            finalDate = it
+                            val start = it ?: LocalDate.now()
+                            if (isMultiDayEnabled && (endDate == null || endDate!!.isBefore(start))) {
+                                endDate = start
+                            }
+                        },
                         isTimeRangeEnabled = isTimeRangeEnabled,
                         isAllDayEnabled = isAllDayEnabled,
+                        isMultiDayEnabled = isMultiDayEnabled,
+                        endDate = endDate,
                         rangeStartTime = rangeStartTime,
                         rangeEndTime = rangeEndTime,
                         onTimeRangeEnabledChange = { enabled ->
@@ -594,6 +611,17 @@ fun BottomSheet(
                                 reminderConfig =
                                     reminderConfig.compatibleWithAllDay(isAllDayEnabled = true)
                             }
+                        },
+                        onMultiDayEnabledChange = { enabled ->
+                            isMultiDayEnabled = enabled
+                            if (enabled) {
+                                val start = finalDate ?: LocalDate.now()
+                                if (finalDate == null) finalDate = start
+                                endDate = endDate?.coerceAtLeast(start) ?: start
+                            }
+                        },
+                        onEndDateChange = { selected ->
+                            endDate = selected.coerceAtLeast(finalDate ?: LocalDate.now())
                         },
                         onRangeStartTimeChange = { newTime ->
                             if (newTime != null) {

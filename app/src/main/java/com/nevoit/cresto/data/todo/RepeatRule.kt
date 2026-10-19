@@ -61,6 +61,49 @@ fun RepeatRule.nextOccurrence(after: LocalDate, occurrenceCount: Int): LocalDate
     return nextDate
 }
 
+/** Returns true when [date] is an occurrence start date for this rule. */
+fun RepeatRule.occursOn(date: LocalDate): Boolean {
+    if (date.isBefore(anchorDate) || endDate?.let(date::isAfter) == true) return false
+    var occurrence = anchorDate
+    var occurrenceCount = 1
+    if (occurrence == date) return maxOccurrences == null || maxOccurrences >= 1
+
+    while (occurrence.isBefore(date) && occurrenceCount < (maxOccurrences ?: 100_000)) {
+        val next = nextScheduledOccurrence(occurrence, occurrenceCount) ?: return false
+        if (!next.isAfter(occurrence)) return false
+        occurrence = next
+        occurrenceCount++
+    }
+    return occurrence == date
+}
+
+/** Enumerates occurrence starts in a bounded range without creating database rows. */
+fun RepeatRule.occurrencesBetween(start: LocalDate, endInclusive: LocalDate): List<LocalDate> {
+    if (endInclusive.isBefore(start)) return emptyList()
+    val result = mutableListOf<LocalDate>()
+    var occurrence = anchorDate
+    var occurrenceCount = 1
+    while (!occurrence.isAfter(endInclusive) && occurrenceCount <= (maxOccurrences ?: 100_000)) {
+        if (!occurrence.isBefore(start) && endDate?.let(occurrence::isAfter) != true) {
+            result += occurrence
+        }
+        val next = nextScheduledOccurrence(occurrence, occurrenceCount) ?: break
+        if (!next.isAfter(occurrence)) break
+        occurrence = next
+        occurrenceCount++
+    }
+    return result
+}
+
+private fun RepeatRule.nextScheduledOccurrence(
+    after: LocalDate,
+    occurrenceCount: Int
+): LocalDate? {
+    if (maxOccurrences != null && occurrenceCount >= maxOccurrences) return null
+    val next = copy(createNextOnCompletion = true).nextOccurrence(after, occurrenceCount)
+    return next?.takeUnless { endDate?.let(it::isAfter) == true }
+}
+
 private fun RepeatRule.nextWeeklyOccurrence(after: LocalDate, step: Long): LocalDate {
     val selectedDays = weekdays
         ?.split(',')

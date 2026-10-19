@@ -198,7 +198,10 @@ class TodoCalendarSyncManager(context: Context) {
         val date = dueDate ?: return null
         if (startTime == null && endTime == null) {
             val startMillis = date.atStartOfDay().toInstantMillis(ZoneOffset.UTC)
-            val endMillis = date.plusDays(1).atStartOfDay().toInstantMillis(ZoneOffset.UTC)
+            val endMillis = (endDate ?: date).coerceAtLeast(date)
+                .plusDays(1)
+                .atStartOfDay()
+                .toInstantMillis(ZoneOffset.UTC)
             return EventTiming(
                 startMillis = startMillis,
                 endMillis = endMillis,
@@ -209,12 +212,13 @@ class TodoCalendarSyncManager(context: Context) {
 
         val start = startTime ?: endTime?.minusHours(1) ?: LocalTime.of(9, 0)
         val rawEnd = endTime ?: start.plusHours(1)
-        val endDate = if (rawEnd.isAfter(start)) date else date.plusDays(1)
+        val eventEndDate = endDate?.coerceAtLeast(date)
+            ?: if (rawEnd.isAfter(start)) date else date.plusDays(1)
         val zoneId = ZoneId.systemDefault()
 
         return EventTiming(
             startMillis = date.atTime(start).toInstantMillis(zoneId),
-            endMillis = endDate.atTime(rawEnd).toInstantMillis(zoneId),
+            endMillis = eventEndDate.atTime(rawEnd).toInstantMillis(zoneId),
             allDay = false,
             timeZoneId = TimeZone.getDefault().id
         )

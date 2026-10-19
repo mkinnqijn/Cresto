@@ -312,6 +312,12 @@
     <string name="select_time">Select Time</string>
     <string name="time_range">Time Range</string>
     <string name="all_day">All Day</string>
+    <string name="multi_day">Multi-day</string>
+    <string name="end_date">End date</string>
+    <string name="only_this_occurrence">Only this occurrence</string>
+    <string name="entire_series">Entire series</string>
+    <string name="change_repeating_todo">Apply change to repeating todo</string>
+    <string name="delete_repeating_todo">Delete repeating todo</string>
     <string name="reminder">Reminder</string>
     <string name="reminder_timing">Reminder Timing</string>
     <string name="reminder_all_day_morning_8">Due day 08:00</string>

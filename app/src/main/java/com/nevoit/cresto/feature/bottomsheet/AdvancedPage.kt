@@ -82,10 +82,14 @@ fun AdvancedPage(
     onFinalDateChange: (LocalDate?) -> Unit,
     isTimeRangeEnabled: Boolean,
     isAllDayEnabled: Boolean,
+    isMultiDayEnabled: Boolean,
+    endDate: LocalDate?,
     rangeStartTime: LocalTime,
     rangeEndTime: LocalTime,
     onTimeRangeEnabledChange: (Boolean) -> Unit,
     onAllDayEnabledChange: (Boolean) -> Unit,
+    onMultiDayEnabledChange: (Boolean) -> Unit,
+    onEndDateChange: (LocalDate) -> Unit,
     onRangeStartTimeChange: (LocalTime?) -> Unit,
     onRangeEndTimeChange: (LocalTime?) -> Unit,
     selectedGroupText: String,
@@ -114,6 +118,7 @@ fun AdvancedPage(
     var dateButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var rangeStartTimeButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var rangeEndTimeButtonBounds by remember { mutableStateOf(Rect.Zero) }
+    var endDateButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var reminderButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var repeatButtonBounds by remember { mutableStateOf(Rect.Zero) }
 
@@ -529,6 +534,52 @@ fun AdvancedPage(
                     backgroundColor = elevatedCardBackground
                 ) {
                     Text(stringResource(R.string.time_range))
+                }
+                CustomSwitchRow(
+                    checked = isMultiDayEnabled,
+                    onCheckedChange = onMultiDayEnabledChange,
+                    backgroundColor = elevatedCardBackground
+                ) {
+                    Text(stringResource(R.string.multi_day))
+                }
+                if (isMultiDayEnabled) {
+                    Row {
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(stringResource(R.string.end_date))
+                            Spacer(Modifier.weight(1f))
+                            Box(
+                                modifier = Modifier
+                                    .onGloballyPositioned { endDateButtonBounds = it.boundsInWindow() }
+                                    .clip(Capsule())
+                                    .background(AppColors.scrimNormal)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = DimIndication()
+                                    ) {
+                                        onRequestCustomDate(
+                                            endDateButtonBounds,
+                                            endDate ?: finalDate ?: LocalDate.now()
+                                        ) { selected ->
+                                            val start = finalDate ?: LocalDate.now()
+                                            onEndDateChange((selected ?: start).coerceAtLeast(start))
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = (endDate ?: finalDate ?: LocalDate.now()).format(
+                                        DateTimeFormatter.ofPattern("yyyy/M/d")
+                                    ),
+                                    color = AppColors.content
+                                )
+                            }
+                        }
+                    }
                 }
                 Row {
                     val timeTextStyle = TextStyle(

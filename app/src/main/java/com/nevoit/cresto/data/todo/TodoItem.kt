@@ -28,6 +28,7 @@ enum class TodoReminderMode {
     indices = [
         Index(value = ["isCompleted", "completedDateTime"]),
         Index(value = ["dueDate"]),
+        Index(value = ["endDate"]),
         Index(value = ["isCompleted", "dueDate"]),
         Index(value = ["creationDateTime"]),
         Index(value = ["groupId", "isCompleted"]),
@@ -42,6 +43,7 @@ data class TodoItem(
     val id: Int = 0,
     val title: String,
     val dueDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
     val creationDateTime: LocalDateTime = LocalDateTime.now(),
     val isCompleted: Boolean = false,
     @ColumnInfo(defaultValue = "0")

@@ -22,6 +22,7 @@ val appModule = module {
             .addMigrations(MIGRATION_28_29)
             .addMigrations(MIGRATION_29_30)
             .addMigrations(MIGRATION_30_31)
+            .addMigrations(MIGRATION_31_32)
             .fallbackToDestructiveMigration(true)
             .build()
     }

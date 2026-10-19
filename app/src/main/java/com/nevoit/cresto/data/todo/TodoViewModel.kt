@@ -398,6 +398,10 @@ class TodoViewModel(
         repository.updateRepeatRuleForTodo(item, config)
     }
 
+    fun updateSeries(item: TodoItem) = viewModelScope.launch {
+        repository.updateSeriesFromOccurrence(item)
+    }
+
     fun updatePinned(id: Int, isPinned: Boolean) = viewModelScope.launch {
         repository.updatePinned(id, isPinned)
     }
@@ -405,6 +409,10 @@ class TodoViewModel(
     fun delete(item: TodoItem) = viewModelScope.launch {
         alarmScheduler.cancel(item)
         repository.delete(item)
+    }
+
+    fun deleteSeries(item: TodoItem) = viewModelScope.launch {
+        repository.deleteSeries(item).forEach { alarmScheduler.cancel(it.id) }
     }
 
     fun deleteById(id: Int) {

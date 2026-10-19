@@ -96,9 +96,18 @@ val MIGRATION_30_31 = object : Migration(30, 31) {
     }
 }
 
+val MIGRATION_31_32 = object : Migration(31, 32) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE todo_items ADD COLUMN endDate TEXT")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_todo_items_endDate` ON `todo_items` (`endDate`)"
+        )
+    }
+}
+
 @Database(
     entities = [TodoItem::class, SubTodoItem::class, RepeatRule::class, TodoGroup::class],
-    version = 31,
+    version = 32,
     exportSchema = true
 )
 

@@ -238,26 +238,49 @@ fun DetailScreen(
 
     var ticker by remember { mutableIntStateOf(0) }
 
-    val deleteDialogItems = listOf(
-        DialogItemData(
-            stringResource(R.string.cancel),
-            onClick = {},
-            isPrimary = false
-        ),
-        DialogItemData(
-            stringResource(R.string.delete),
-            icon = painterResource(R.drawable.ic_trash),
-            onClick = {
-                val resultIntent = Intent().apply {
-                    putExtra(EXTRA_DELETE_ID, todoId)
-                }
-                activity?.setResult(Activity.RESULT_OK, resultIntent)
-                activity?.finish()
-            },
-            isPrimary = true,
-            isDestructive = true
+    val isRepeatingOccurrence = itemWithSubTodos?.todoItem?.seriesId != null
+    val deleteDialogItems = buildList {
+        add(
+            DialogItemData(
+                stringResource(R.string.cancel),
+                onClick = {},
+                isPrimary = false
+            )
         )
-    )
+        add(
+            DialogItemData(
+                if (isRepeatingOccurrence) {
+                    stringResource(R.string.only_this_occurrence)
+                } else {
+                    stringResource(R.string.delete)
+                },
+                icon = painterResource(R.drawable.ic_trash),
+                onClick = {
+                    val resultIntent = Intent().apply {
+                        putExtra(EXTRA_DELETE_ID, todoId)
+                    }
+                    activity?.setResult(Activity.RESULT_OK, resultIntent)
+                    activity?.finish()
+                },
+                isPrimary = !isRepeatingOccurrence,
+                isDestructive = true
+            )
+        )
+        if (isRepeatingOccurrence) {
+            add(
+                DialogItemData(
+                    stringResource(R.string.entire_series),
+                    icon = painterResource(R.drawable.ic_trash),
+                    onClick = {
+                        itemWithSubTodos?.todoItem?.let(viewModel::deleteSeries)
+                        activity?.finish()
+                    },
+                    isPrimary = true,
+                    isDestructive = true
+                )
+            )
+        }
+    }
 
     var dialogState by remember { mutableStateOf(DialogState()) }
 
@@ -269,6 +292,46 @@ fun DetailScreen(
 
     val dismissDialog = {
         dialogState = dialogState.copy(isVisible = false)
+    }
+
+    var editEntireSeries by remember { mutableStateOf<Boolean?>(null) }
+    val cancelText = stringResource(R.string.cancel)
+    val onlyThisOccurrenceText = stringResource(R.string.only_this_occurrence)
+    val entireSeriesText = stringResource(R.string.entire_series)
+    val changeRepeatingTodoText = stringResource(R.string.change_repeating_todo)
+
+    fun updateTodoWithScope(item: TodoItem) {
+        if (item.seriesId == null || editEntireSeries == false) {
+            viewModel.update(item)
+            return
+        }
+        if (editEntireSeries == true) {
+            viewModel.updateSeries(item)
+            return
+        }
+        showDialog(
+            listOf(
+                DialogItemData(cancelText, onClick = {}, isPrimary = false),
+                DialogItemData(
+                    onlyThisOccurrenceText,
+                    onClick = {
+                        editEntireSeries = false
+                        viewModel.update(item)
+                    },
+                    isPrimary = false
+                ),
+                DialogItemData(
+                    entireSeriesText,
+                    onClick = {
+                        editEntireSeries = true
+                        viewModel.updateSeries(item)
+                    },
+                    isPrimary = true
+                )
+            ),
+            changeRepeatingTodoText,
+            null
+        )
     }
 
     var menuState by remember { mutableStateOf(MenuState()) }
@@ -339,10 +402,12 @@ fun DetailScreen(
     var moreButtonBounds by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var dateButtonBounds by remember { mutableStateOf(Rect.Zero) }
     var isDatePickerVisible by remember { mutableStateOf(false) }
+    var isPickingEndDate by remember { mutableStateOf(false) }
     var isGroupBottomSheetVisible by remember { mutableStateOf(false) }
 
     val showDatePicker: (anchorBounds: Rect) -> Unit = { bounds ->
         dateButtonBounds = bounds
+        isPickingEndDate = false
         isDatePickerVisible = true
     }
 
@@ -438,7 +503,7 @@ fun DetailScreen(
         val normalizedLocation = locationDraft.trim()
         itemWithSubTodos?.let { item ->
             if (normalizedLocation != item.todoItem.location) {
-                viewModel.update(item.todoItem.copy(location = normalizedLocation))
+                updateTodoWithScope(item.todoItem.copy(location = normalizedLocation))
             }
         }
     }
@@ -483,13 +548,18 @@ fun DetailScreen(
 
     LaunchedEffect(finalDate) {
         itemWithSubTodos?.let {
-            viewModel.update(it.todoItem.copy(dueDate = finalDate))
+            if (it.todoItem.dueDate != finalDate) {
+                val normalizedEnd = finalDate?.let { start ->
+                    it.todoItem.endDate?.coerceAtLeast(start)
+                } ?: it.todoItem.endDate
+                updateTodoWithScope(it.todoItem.copy(dueDate = finalDate, endDate = normalizedEnd))
+            }
         }
     }
     LaunchedEffect(title) {
         itemWithSubTodos?.let {
             if (it.todoItem.title != title) {
-                viewModel.update(it.todoItem.copy(title = title)).join()
+                updateTodoWithScope(it.todoItem.copy(title = title))
                 delay(120.milliseconds)
                 TodayTodoWidgetRefresh.request(context, "detail_title_edited")
             }
@@ -497,13 +567,15 @@ fun DetailScreen(
     }
     LaunchedEffect(notesText) {
         itemWithSubTodos?.let {
-            viewModel.update(it.todoItem.copy(notes = notesText))
+            if (it.todoItem.notes != notesText) {
+                updateTodoWithScope(it.todoItem.copy(notes = notesText))
+            }
         }
     }
 
     val flagMenu = rememberFlagMenuItems(noneFirst = true) { index ->
         itemWithSubTodos?.let {
-            viewModel.update(it.todoItem.copy(flag = index))
+            updateTodoWithScope(it.todoItem.copy(flag = index))
         }
     }
 
@@ -629,6 +701,27 @@ fun DetailScreen(
                                         fontWeight = FontWeight.Normal,
                                         color = AppColors.content
                                     )
+                                }
+                                if (currentItem.todoItem.endDate != null) {
+                                    VDivider()
+                                    TodoConfigRow(
+                                        icon = painterResource(id = R.drawable.ic_calendar),
+                                        contentDescription = stringResource(R.string.end_date),
+                                        title = stringResource(R.string.end_date),
+                                        onButtonClick = { bounds ->
+                                            dateButtonBounds = bounds
+                                            isPickingEndDate = true
+                                            isDatePickerVisible = true
+                                        }
+                                    ) {
+                                        Text(
+                                            text = currentItem.todoItem.endDate.format(
+                                                DateTimeFormatter.ofPattern("yyyy/M/d")
+                                            ),
+                                            fontWeight = FontWeight.Normal,
+                                            color = AppColors.content
+                                        )
+                                    }
                                 }
                                 VDivider()
                                 TodoConfigRow(
@@ -966,7 +1059,13 @@ fun DetailScreen(
                     val deleteTodoSimpleText = stringResource(R.string.delete_todo_simple)
                     val deletePluralsText =
                         pluralStringResource(R.plurals.delete_todo_with_subtasks, subTodoCount)
-                    val deleteCurrentTodoText = stringResource(R.string.delete_current_todo)
+                    val deleteCurrentTodoText = stringResource(
+                        if (isRepeatingOccurrence) {
+                            R.string.delete_repeating_todo
+                        } else {
+                            R.string.delete_current_todo
+                        }
+                    )
                     val message = if (subTodoCount == 0) {
                         deleteTodoSimpleText
                     } else {
@@ -1000,10 +1099,21 @@ fun DetailScreen(
             DueDatePicker(
                 isVisible = isDatePickerVisible,
                 anchorBounds = dateButtonBounds,
-                initialDate = finalDate,
+                initialDate = if (isPickingEndDate) {
+                    currentItem?.todoItem?.endDate
+                } else {
+                    finalDate
+                },
                 onDismiss = dismissDatePicker,
                 onDateSelected = { date ->
-                    finalDate = date
+                    if (isPickingEndDate) {
+                        currentItem?.todoItem?.let { item ->
+                            val start = item.dueDate ?: LocalDate.now()
+                            updateTodoWithScope(item.copy(endDate = (date ?: start).coerceAtLeast(start)))
+                        }
+                    } else {
+                        finalDate = date
+                    }
                 },
                 direction = PopupDirection.Down
             )
@@ -1023,7 +1133,7 @@ fun DetailScreen(
 
                                 is HomeGroupFilter.Group -> filter.id
                             }
-                            viewModel.update(item.todoItem.copy(groupId = groupId))
+                            updateTodoWithScope(item.todoItem.copy(groupId = groupId))
                         },
                         onCreateGroup = { name -> viewModel.createTodoGroup(name) },
                         onRenameGroup = viewModel::updateTodoGroup,
@@ -1046,7 +1156,7 @@ fun DetailScreen(
                             val reminderConfig = it.todoItem
                                 .toReminderConfig()
                                 .compatibleWithAllDay(isAllDayEnabled)
-                            viewModel.update(
+                            updateTodoWithScope(
                                 it.todoItem.copy(
                                     startTime = newStartTime,
                                     endTime = newEndTime
@@ -1092,7 +1202,7 @@ fun DetailScreen(
                         reminderDraftConfig = mergedConfig
                         reminderDraftPersistent = persistent
                         reminderDraftStrong = strong
-                        viewModel.update(
+                        updateTodoWithScope(
                             todoItem.withReminderConfig(mergedConfig).copy(
                                 reminderPersistent = persistent,
                                 reminderStrong = strong

@@ -10,6 +10,8 @@ import com.nevoit.cresto.feature.settings.util.SortOrder
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDateTime
+import java.time.LocalDate
+import java.time.LocalTime
 
 class TodoSorterTest {
 
@@ -166,6 +168,24 @@ class TodoSorterTest {
         assertEquals(listOf(21, 20), sorted.map { it.todoItem.id })
     }
 
+    @Test
+    fun dueDateSort_putsUntimedFirstThenSortsStartTimeAscendingWithinTheDay() {
+        val dueDate = LocalDate.of(2026, 10, 19)
+        val untimed = todo(1, "untimed", creationDateTime = dt("2026-01-01T08:00:00"), dueDate = dueDate)
+        val later = todo(2, "later", creationDateTime = dt("2026-01-02T08:00:00"), dueDate = dueDate, startTime = LocalTime.of(18, 0))
+        val earlier = todo(3, "earlier", creationDateTime = dt("2026-01-03T08:00:00"), dueDate = dueDate, startTime = LocalTime.of(9, 0))
+
+        assertEquals(
+            listOf(1, 3, 2),
+            sortTodos(
+                listOf(later, untimed, earlier),
+                SortOption.DUE_DATE,
+                SortOrder.DESCENDING,
+                TodoListType.INCOMPLETED
+            ).map { it.todoItem.id }
+        )
+    }
+
     private fun todo(
         id: Int,
         title: String,
@@ -173,7 +193,9 @@ class TodoSorterTest {
         creationDateTime: LocalDateTime,
         completedDateTime: LocalDateTime? = null,
         isCompleted: Boolean = false,
-        isPinned: Boolean = false
+        isPinned: Boolean = false,
+        dueDate: LocalDate? = null,
+        startTime: LocalTime? = null
     ): TodoItemWithSubTodos {
         return TodoItemWithSubTodos(
             todoItem = TodoItem(
@@ -183,7 +205,9 @@ class TodoSorterTest {
                 creationDateTime = creationDateTime,
                 completedDateTime = completedDateTime,
                 isCompleted = isCompleted,
-                isPinned = isPinned
+                isPinned = isPinned,
+                dueDate = dueDate,
+                startTime = startTime
             ),
             subTodos = emptyList()
         )

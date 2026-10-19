@@ -29,17 +29,28 @@ class TodayTodoWidgetDataTest {
         )
     }
 
-    @Test fun `date then start time wins over pins and untimed items come last that day`() {
+    @Test fun `date then untimed items then start time wins over pins`() {
         val input = listOf(todo(1).copy(isPinned = true),
             todo(2, "18:30").copy(endTime = LocalTime.of(20, 30)),
             todo(3, "15:30").copy(isPinned = true), todo(4, "09:00"),
             todo(5).copy(endTime = LocalTime.of(8, 0)), todo(6, "23:59"))
         assertEquals(
-            listOf(4, 3, 2, 6, 1, 5),
+            listOf(1, 5, 4, 3, 2, 6),
             upcomingWidgetSections(input, today, today.atStartOfDay())
                 .flatMap { section -> section.todos }
                 .map { it.id }
         )
+    }
+
+    @Test fun `multi-day todo appears on every covered date and expires on its end date`() {
+        val item = todo(1, "09:00").copy(endDate = today.plusDays(2))
+        val sections = upcomingWidgetSections(listOf(item), today, today.atStartOfDay())
+
+        assertEquals(
+            listOf(today, today.plusDays(1), today.plusDays(2)),
+            sections.map { it.date }
+        )
+        assertEquals(listOf(1, 1, 1), sections.map { it.todos.single().id })
     }
 
     @Test fun `ties use creation time then id even if Room emits a different order`() {
