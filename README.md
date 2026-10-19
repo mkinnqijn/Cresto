@@ -1,10 +1,26 @@
-# Cresto
+# Cresto — Personal Fork
 
-Cresto is a modern Android to-do app built with Kotlin and Jetpack Compose. It combines a clean task manager with AI-assisted capture, calendar sync, reminders, lightweight productivity insights, and a custom visual system called Glasense.
+This repository is a personal adaptation of **[Cresto](https://github.com/Nevodev/Cresto)** by [Nevodev](https://github.com/Nevodev). It is not an application developed from scratch. The original app, its existing features, architecture, and design work belong to the upstream project and its contributors. To learn about the original version, review its source, or support the original author, please visit the [upstream Cresto repository](https://github.com/Nevodev/Cresto).
+
+## Changes in This Fork
+
+The current `feature/widget` branch adds and refines:
+
+- An Android home-screen todo widget with date grouping, responsive row layout, and height-aware content filling.
+- Optional overdue-task display in the widget, including a configurable maximum count.
+- Widget completion controls with a three-minute undo window and an option to hide a completed row immediately without deleting the task.
+- Multi-day schedules with start and end dates. They remain visible on each covered day in the app, while the widget shows each schedule once with its date range.
+- Recurring schedules for daily, weekly, and custom weekday intervals, including single-occurrence and whole-series editing or deletion.
+
+Unless a change is listed above, the features and technical overview below describe the original Cresto project rather than original work by this fork's maintainer.
+
+## Original Project Overview
+
+The upstream Cresto project is a modern Android to-do app built with Kotlin and Jetpack Compose. It combines a clean task manager with AI-assisted capture, calendar sync, reminders, lightweight productivity insights, and a custom visual system called Glasense.
 
 > Cresto is currently in active alpha development. Some details may change quickly as features are refined.
 
-## Highlights
+## Upstream Highlights
 
 - Clean Compose UI with Cresto's Glasense design system and optional Liquid Glass styling.
 - Full to-do workflow.
